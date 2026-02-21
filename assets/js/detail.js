@@ -230,32 +230,33 @@
     const approved = bObj ? (bObj.approved || "-") : "-";
     const mainFee = x.maintenanceFeeManwon ? Number(x.maintenanceFeeManwon).toLocaleString("ko-KR") + "만원" : "-";
 
-    // 핵심 요약 그리드
+    // 핵심 요약 테이블형
+    const areaVal = exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-");
     const summaryGrid = `
-      <div class="ip-summary-grid">
-        <div class="ip-summary-item wide">
-          <div class="sl">건물명</div>
-          <div class="sv">${esc(x.buildingName || title)}</div>
+      <div class="ip-summary-body">
+        <div class="ip-sum-cell full">
+          <div class="ip-sum-label">건물명</div>
+          <div class="ip-sum-value">${esc(x.buildingName || title)}</div>
         </div>
-        <div class="ip-summary-item">
-          <div class="sl">거래형태</div>
-          <div class="sv">${esc(x.dealType || "-")}</div>
+        <div class="ip-sum-cell">
+          <div class="ip-sum-label">거래형태</div>
+          <div class="ip-sum-value">${esc(x.dealType || "-")}</div>
         </div>
-        <div class="ip-summary-item">
-          <div class="sl">현황/상태</div>
-          <div class="sv">${esc(x.status || "-")}</div>
+        <div class="ip-sum-cell">
+          <div class="ip-sum-label">현황/상태</div>
+          <div class="ip-sum-value">${esc(x.status || "-")}</div>
         </div>
-        <div class="ip-summary-item">
-          <div class="sl">층구분</div>
-          <div class="sv">${esc(floorTxt)}</div>
+        <div class="ip-sum-cell">
+          <div class="ip-sum-label">층구분</div>
+          <div class="ip-sum-value">${esc(floorTxt)}</div>
         </div>
-        <div class="ip-summary-item">
-          <div class="sl">면적 (전용)</div>
-          <div class="sv">${esc(exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-"))}</div>
+        <div class="ip-sum-cell">
+          <div class="ip-sum-label">면적 (전용)</div>
+          <div class="ip-sum-value">${esc(areaVal)}</div>
         </div>
-        <div class="ip-summary-item wide">
-          <div class="sl">금액</div>
-          <div class="sv" style="font-size:13pt; color:#1a2b50;">${esc(price)}</div>
+        <div class="ip-sum-cell full">
+          <div class="ip-sum-label">금액</div>
+          <div class="ip-sum-value price">${esc(price)}</div>
         </div>
       </div>`;
 
@@ -316,10 +317,10 @@
         ${summaryGrid}
       </div>
 
-      <div class="ip-detail-title">상세 정보</div>
+      <div class="ip-section-title">상세 정보</div>
       <table class="ip-table"><tbody>${trows.join("")}</tbody></table>
 
-      ${descHtml ? `<div class="ip-desc-section"><div class="ip-detail-title">매물 설명</div>${descHtml}</div>` : ""}
+      ${descHtml ? `<div class="ip-section-title" style="margin-top:12pt;">매물 설명</div><div>${descHtml}</div>` : ""}
 
       ${memoText ? `<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">${esc(memoText)}</div></div>` : ""}
 

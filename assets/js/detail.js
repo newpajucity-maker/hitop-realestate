@@ -152,9 +152,10 @@
   }
 
   function fmtArea(m2, py) {
-    const mm = m2 ? `${fmtNum(m2)}㎡` : "";
-    const pp = py ? `${fmtNum(py)}평` : "";
-    return `${mm}${mm && pp ? " " : ""}(${pp})`.trim() || "—";
+    const mm = (m2 && Number(m2) > 0) ? `${fmtNum(m2)}㎡` : "";
+    const pp = (py && Number(py) > 0) ? `(${fmtNum(py)}평)` : "";
+    const result = [mm, pp].filter(Boolean).join(" ");
+    return result || "—";
   }
 
   function priceText(x) {
@@ -248,13 +249,13 @@
           <div class="sl">층구분</div>
           <div class="sv">${esc(floorTxt)}</div>
         </div>
-        <div class="ip-summary-item wide">
-          <div class="sl">금액</div>
-          <div class="sv">${esc(price)}</div>
-        </div>
-        <div class="ip-summary-item wide">
+        <div class="ip-summary-item">
           <div class="sl">면적 (전용)</div>
           <div class="sv">${esc(exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-"))}</div>
+        </div>
+        <div class="ip-summary-item wide">
+          <div class="sl">금액</div>
+          <div class="sv" style="font-size:13pt; color:#1a2b50;">${esc(price)}</div>
         </div>
       </div>`;
 

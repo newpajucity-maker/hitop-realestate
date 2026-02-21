@@ -35,7 +35,7 @@
     floorGroup: "",
     listedOnly: true,
     q: "",
-    selected: new Set()
+    selected: new Set(), // 선택된 매물 id
   };
 
   init();
@@ -47,6 +47,7 @@
     elType.addEventListener("change", () => {
       state.type = elType.value;
       state.buildingId = "";
+      state.selected.clear(); // 유형 바뀌면 선택 초기화(권장)
       renderBuildingOptions();
       render();
     });
@@ -83,21 +84,25 @@
       render();
     });
 
+    // 전체 리스트 출력
     elBtnPrint.addEventListener("click", () => {
       printWithRows(getFilteredRows());
     });
 
+    // 선택 출력
     if (elBtnPrintSelected) {
       elBtnPrintSelected.addEventListener("click", () => {
         const sel = Array.from(state.selected);
         if (!sel.length) return alert("선택된 매물이 없습니다.");
+
         const all = getFilteredRows();
-        const rows = all.filter(x => state.selected.has(x.id));
+        const rows = all.filter((x) => state.selected.has(x.id));
         if (!rows.length) return alert("현재 조건에서 선택된 매물이 없습니다.");
         printWithRows(rows);
       });
     }
 
+    // 단건 출력(상세로 이동 + print=info)
     if (elBtnPrintOne) {
       elBtnPrintOne.addEventListener("click", () => {
         const sel = Array.from(state.selected);
@@ -106,20 +111,50 @@
       });
     }
 
-    elBtnNew.addEventListener("click", () => location.href = "register.html");
-    elBtnBuildings.addEventListener("click", () => location.href = "buildings.html");
-    if (elBtnHome) elBtnHome.addEventListener("click", () => location.href = "home.html");
-    if (elBtnCustomers) elBtnCustomers.addEventListener("click", () => location.href = "customers.html");
+    // 페이지 이동
+    if (elBtnNew) elBtnNew.addEventListener("click", () => (location.href = "register.html"));
+    if (elBtnBuildings) elBtnBuildings.addEventListener("click", () => (location.href = "buildings.html"));
+    if (elBtnHome) elBtnHome.addEventListener("click", () => (location.href = "home.html"));
+    if (elBtnCustomers) elBtnCustomers.addEventListener("click", () => (location.href = "customers.html"));
+
+    // 체크박스 클릭은 행 클릭(상세 이동) 막기 + 선택 상태 유지
+    document.addEventListener(
+      "click",
+      (e) => {
+        const t = e.target;
+        if (!(t instanceof HTMLElement)) return;
+
+        // 개별 체크박스
+        if (t.classList.contains("row-check")) {
+          e.stopPropagation();
+          const id = t.getAttribute("data-id");
+          if (!id) return;
+          if (t.checked) state.selected.add(id);
+          else state.selected.delete(id);
+          if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
+
+          // 헤더 체크 상태 갱신
+          syncHeaderCheckAll();
+        }
+
+        // 헤더 전체선택
+        if (t.id === "checkAll") {
+          e.stopPropagation();
+          // 실제 처리는 bindCheckAll()에서 onchange로 처리됨
+        }
+      },
+      true
+    );
 
     renderBuildingOptions();
     render();
   }
 
   function renderBuildingOptions() {
-    const buildings = DataUtil.getBuildings().filter(b => b.type === state.type);
+    const buildings = DataUtil.getBuildings().filter((b) => b.type === state.type);
 
     elBuilding.innerHTML = `<option value="">건물 전체</option>`;
-    buildings.forEach(b => {
+    buildings.forEach((b) => {
       const opt = document.createElement("option");
       opt.value = b.id;
       opt.textContent = b.name;
@@ -138,8 +173,10 @@
     elCount.textContent = `${filtered.length}건`;
     updatePrintHeader();
 
-    // 버튼 상태
     if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
+
+    // ✅ 헤더 전체선택 바인딩/동기화
+    bindCheckAll(filtered);
   }
 
   function getFilteredRows() {
@@ -153,6 +190,7 @@
     if (state.status && x.status !== state.status) return false;
     if (state.dealType && x.dealType !== state.dealType) return false;
     if (state.buildingId && x.buildingId !== state.buildingId) return false;
+
     if (state.floorGroup) {
       const fg = x.floorGroup || guessFloorGroup(x.floor);
       if (fg !== state.floorGroup) return false;
@@ -160,10 +198,23 @@
 
     if (state.q) {
       const hay = [
-        x.title, x.address, x.buildingName, x.unit, x.ho, x.dong, x.memo,
-        x.currentBiz, x.landUseZone, x.landJimo
-        ,x.ownerName, x.ownerPhone, x.tenantName, x.tenantPhone
-      ].join(" ").toLowerCase();
+        x.title,
+        x.address,
+        x.buildingName,
+        x.unit,
+        x.ho,
+        x.dong,
+        x.memo,
+        x.currentBiz,
+        x.landUseZone,
+        x.landJimo,
+        x.ownerName,
+        x.ownerPhone,
+        x.tenantName,
+        x.tenantPhone,
+      ]
+        .join(" ")
+        .toLowerCase();
       if (!hay.includes(state.q)) return false;
     }
 
@@ -174,12 +225,15 @@
     const cols = getColumns(type);
     elTableHead.innerHTML = "";
     const tr = document.createElement("tr");
-    cols.forEach(c => {
+
+    cols.forEach((c) => {
       const th = document.createElement("th");
-      th.textContent = c.label;
+      if (c.headerHtml) th.innerHTML = c.headerHtml;
+      else th.textContent = c.label;
       if (c.className) th.className = c.className;
       tr.appendChild(th);
     });
+
     elTableHead.appendChild(tr);
   }
 
@@ -190,13 +244,15 @@
     rows.forEach((x, idx) => {
       const tr = document.createElement("tr");
       tr.style.cursor = "pointer";
-      tr.addEventListener("click", () => location.href = `detail.html?id=${x.id}`);
-      cols.forEach(c => {
+      tr.addEventListener("click", () => (location.href = `detail.html?id=${x.id}`));
+
+      cols.forEach((c) => {
         const td = document.createElement("td");
         if (c.className) td.className = c.className;
         td.innerHTML = c.render ? c.render(x, idx) : "";
         tr.appendChild(td);
       });
+
       elTableBody.appendChild(tr);
     });
 
@@ -213,8 +269,8 @@
 
   function getColumns(type) {
     const m2py = (m2, py) => {
-      const m2v = (m2 ?? "");
-      const pyv = (py ?? "");
+      const m2v = m2 ?? "";
+      const pyv = py ?? "";
       if (!m2v && !pyv) return "-";
       const mm = m2v ? `${fmtNum(m2v)}㎡` : "";
       const pp = pyv ? `${fmtNum(pyv)}평` : "";
@@ -235,117 +291,148 @@
     };
 
     const colSelect = {
-      label:"선택",
-      className:"center",
+      label: "선택",
+      headerHtml: `<input type="checkbox" id="checkAll" title="전체선택" />`,
+      className: "center",
       render: (x) => {
         const checked = state.selected.has(x.id) ? "checked" : "";
         return `<input type="checkbox" class="row-check" data-id="${escAttr(x.id)}" ${checked}/>`;
-      }
+      },
     };
 
-    if (type === "officetel") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"건물명", render: x => esc(x.buildingName || "-") },
-      { label:"동/호수", render: x => esc(`${x.dong ? x.dong+" " : ""}${x.ho || "-"}`) },
-      { label:"층수", className:"center", render: x => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
-      { label:"타입/방", className:"center", render: x => esc(`${x.otType || "-"}${x.rooms ? " / "+x.rooms+"R" : ""}`) },
-      { label:"전용(㎡/평)", render: x => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
-      { label:"분양(㎡/평)", render: x => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
-      { label:"향", className:"center", render: x => esc(x.direction || "-") },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"가격", className:"right", render: x => esc(priceOffi(x)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "officetel")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "건물명", render: (x) => esc(x.buildingName || "-") },
+        { label: "동/호수", render: (x) => esc(`${x.dong ? x.dong + " " : ""}${x.ho || "-"}`) },
+        { label: "층수", className: "center", render: (x) => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
+        { label: "타입/방", className: "center", render: (x) => esc(`${x.otType || "-"}${x.rooms ? " / " + x.rooms + "R" : ""}`) },
+        { label: "전용(㎡/평)", render: (x) => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
+        { label: "분양(㎡/평)", render: (x) => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
+        { label: "향", className: "center", render: (x) => esc(x.direction || "-") },
+        { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+        { label: "가격", className: "right", render: (x) => esc(priceOffi(x)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
-    if (type === "apartment") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"건물명", render: x => esc(x.buildingName || "-") },
-      { label:"동/호수", render: x => esc(`${x.dong ? x.dong+" " : ""}${x.ho || "-"}`) },
-      { label:"층수", className:"center", render: x => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
-      { label:"전용(㎡/평)", render: x => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
-      { label:"분양(㎡/평)", render: x => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
-      { label:"타입", className:"center", render: x => esc(x.aptType || "-") },
-      { label:"향", className:"center", render: x => esc(x.direction || "-") },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"가격", className:"right", render: x => esc(priceOffi(x)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "apartment")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "건물명", render: (x) => esc(x.buildingName || "-") },
+        { label: "동/호수", render: (x) => esc(`${x.dong ? x.dong + " " : ""}${x.ho || "-"}`) },
+        { label: "층수", className: "center", render: (x) => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
+        { label: "전용(㎡/평)", render: (x) => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
+        { label: "분양(㎡/평)", render: (x) => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
+        { label: "타입", className: "center", render: (x) => esc(x.aptType || "-") },
+        { label: "향", className: "center", render: (x) => esc(x.direction || "-") },
+        { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+        { label: "가격", className: "right", render: (x) => esc(priceOffi(x)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
-    if (type === "bizcenter") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"건물명", render: x => esc(x.buildingName || "-") },
-      { label:"호실", className:"center", render: x => esc(x.unit || "-") },
-      { label:"층수", className:"center", render: x => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
-      { label:"전용(㎡/평)", render: x => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"가격", className:"right", render: x => esc(priceShop(x)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "bizcenter")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "건물명", render: (x) => esc(x.buildingName || "-") },
+        { label: "호실", className: "center", render: (x) => esc(x.unit || "-") },
+        { label: "층수", className: "center", render: (x) => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
+        { label: "전용(㎡/평)", render: (x) => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
+        { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+        { label: "가격", className: "right", render: (x) => esc(priceShop(x)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
-    if (type === "shop") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"건물명", render: x => esc(x.buildingName || "-") },
-      { label:"호실", className:"center", render: x => esc(x.unit || "-") },
-      { label:"층수", className:"center", render: x => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
-      { label:"전용(㎡/평)", render: x => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
-      { label:"분양(㎡/평)", render: x => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
-      { label:"현업종", render: x => esc(x.currentBiz || "-") },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"임대조건/가격", className:"right", render: x => esc(priceShop(x)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "shop")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "건물명", render: (x) => esc(x.buildingName || "-") },
+        { label: "호실", className: "center", render: (x) => esc(x.unit || "-") },
+        { label: "층수", className: "center", render: (x) => esc(x.floorGroup || guessFloorGroup(x.floor) || "-") },
+        { label: "전용(㎡/평)", render: (x) => esc(m2py(x.areaExclusiveM2, x.areaExclusivePy)) },
+        { label: "분양(㎡/평)", render: (x) => esc(m2py(x.areaSupplyM2, x.areaSupplyPy)) },
+        { label: "현업종", render: (x) => esc(x.currentBiz || "-") },
+        { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+        { label: "임대조건/가격", className: "right", render: (x) => esc(priceShop(x)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
-    if (type === "land_dev" || type === "land_single" || type === "land_general") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"소재지", render: x => esc(x.address || "-") },
-      { label:"면적(㎡/평)", render: x => esc(m2py(x.landAreaM2, x.landAreaPy)) },
-      { label:"지목", className:"center", render: x => esc(x.landJimo || "-") },
-      { label:"용도지역", render: x => esc(x.landUseZone || "-") },
-      { label:"매매가", className:"right", render: x => esc(fmtMan(x.salePriceManwon)) },
-      { label:"평당가", className:"right", render: x => esc(calcPyeongPrice(x.salePriceManwon, x.landAreaPy)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "land_dev" || type === "land_single" || type === "land_general")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "소재지", render: (x) => esc(x.address || "-") },
+        { label: "면적(㎡/평)", render: (x) => esc(m2py(x.landAreaM2, x.landAreaPy)) },
+        { label: "지목", className: "center", render: (x) => esc(x.landJimo || "-") },
+        { label: "용도지역", render: (x) => esc(x.landUseZone || "-") },
+        { label: "매매가", className: "right", render: (x) => esc(fmtMan(x.salePriceManwon)) },
+        { label: "평당가", className: "right", render: (x) => esc(calcPyeongPrice(x.salePriceManwon, x.landAreaPy)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
-    if (type === "factory") return [
-      colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"소재지", render: x => esc(x.address || "-") },
-      { label:"대지(㎡/평)", render: x => esc(m2py(x.landAreaM2, x.landAreaPy)) },
-      { label:"건축(㎡/평)", render: x => esc(m2py(x.buildingAreaM2, x.buildingAreaPy)) },
-      { label:"층고", className:"center", render: x => esc(x.clearHeightM ? `${x.clearHeightM}m` : "-") },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"가격", className:"right", render: x => esc(priceShop(x)) },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
-    ];
+    if (type === "factory")
+      return [
+        colSelect,
+        { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+        { label: "소재지", render: (x) => esc(x.address || "-") },
+        { label: "대지(㎡/평)", render: (x) => esc(m2py(x.landAreaM2, x.landAreaPy)) },
+        { label: "건축(㎡/평)", render: (x) => esc(m2py(x.buildingAreaM2, x.buildingAreaPy)) },
+        { label: "층고", className: "center", render: (x) => esc(x.clearHeightM ? `${x.clearHeightM}m` : "-") },
+        { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+        { label: "가격", className: "right", render: (x) => esc(priceShop(x)) },
+        { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
+      ];
 
     return [
       colSelect,
-      { label:"번호", className:"center", render:(_, i) => String(i+1) },
-      { label:"제목", render: x => esc(x.title || "-") },
-      { label:"주소/건물", render: x => esc(x.address || x.buildingName || "-") },
-      { label:"거래", className:"center", render: x => esc(x.dealType || "-") },
-      { label:"상태", className:"center", render: x => esc(x.status || "-") },
+      { label: "번호", className: "center", render: (_, i) => String(i + 1) },
+      { label: "제목", render: (x) => esc(x.title || "-") },
+      { label: "주소/건물", render: (x) => esc(x.address || x.buildingName || "-") },
+      { label: "거래", className: "center", render: (x) => esc(x.dealType || "-") },
+      { label: "상태", className: "center", render: (x) => esc(x.status || "-") },
     ];
   }
 
-  // 체크박스 클릭 시 행 이동 막기 + 선택 상태 관리
-  document.addEventListener("click", (e) => {
-    const t = e.target;
-    if (!(t instanceof HTMLElement)) return;
-    if (t.classList.contains("row-check")) {
-      e.stopPropagation();
-      const id = t.getAttribute("data-id");
-      if (!id) return;
-      if (t.checked) state.selected.add(id);
-      else state.selected.delete(id);
+  function bindCheckAll(filteredRows) {
+    const checkAll = document.getElementById("checkAll");
+    if (!checkAll) return;
+
+    const boxes = Array.from(document.querySelectorAll(".row-check"));
+    const checkedCount = boxes.filter((b) => b.checked).length;
+
+    checkAll.checked = boxes.length > 0 && checkedCount === boxes.length;
+    checkAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+
+    checkAll.onchange = null;
+    checkAll.onchange = () => {
+      boxes.forEach((b) => {
+        b.checked = checkAll.checked;
+        const id = b.getAttribute("data-id");
+        if (!id) return;
+        if (checkAll.checked) state.selected.add(id);
+        else state.selected.delete(id);
+      });
+
       if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
-    }
-  }, true);
+
+      // 변경 후 헤더 상태 다시 맞춤
+      const newChecked = boxes.filter((b) => b.checked).length;
+      checkAll.checked = boxes.length > 0 && newChecked === boxes.length;
+      checkAll.indeterminate = newChecked > 0 && newChecked < boxes.length;
+    };
+  }
+
+  function syncHeaderCheckAll() {
+    const checkAll = document.getElementById("checkAll");
+    if (!checkAll) return;
+    const boxes = Array.from(document.querySelectorAll(".row-check"));
+    const checkedCount = boxes.filter((b) => b.checked).length;
+    checkAll.checked = boxes.length > 0 && checkedCount === boxes.length;
+    checkAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
 
   function printWithRows(rows) {
     const original = getFilteredRows();
@@ -353,6 +440,7 @@
     renderRows(state.type, rows);
     updatePrintHeader();
     window.print();
+
     // 복원
     renderColumns(state.type);
     renderRows(state.type, original);
@@ -381,7 +469,7 @@
     elPrintTitle.textContent = title;
 
     const today = new Date();
-    const dateStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
+    const dateStr = `${today.getFullYear()}.${pad2(today.getMonth() + 1)}.${pad2(today.getDate())}`;
     const sub = `출력일: ${dateStr} · 조건: ${state.listedOnly ? "✅매물나옴" : "전체"}${state.dealType ? " · " + state.dealType : ""}${state.status ? " · " + state.status : ""}`;
     elPrintSub.textContent = sub;
   }
@@ -432,6 +520,7 @@
       .replaceAll(">", "&gt;");
   }
 
-  function pad2(n){ return String(n).padStart(2,"0"); }
-
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
 })();

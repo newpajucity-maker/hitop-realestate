@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>하이탑부동산 | 매물 등록</title>
+
+  <!-- Pretendard -->
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="assets/css/app.css" />
+  <link rel="stylesheet" href="assets/css/register.css" />
+</head>
+
+<body>
+  <div class="page">
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="brand-text">
+          <h1>매물 등록</h1>
+          <p>유형별 입력폼 · 건물 자동 불러오기 · ㎡→평 자동 계산</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn ghost" onclick="location.href='home.html'">홈</button>
+        <button class="btn ghost" onclick="location.href='customers.html'">고객관리</button>
+        <button class="btn ghost" onclick="location.href='buildings.html'">건물관리</button>
+        <button class="btn ghost" onclick="location.href='index.html'">매물목록</button>
+      </div>
+    </header>
+
+    <main class="grid">
+
+      <!-- LEFT: 기본정보 -->
+      <section class="card">
+        <div class="section-title">
+          <h2>기본 정보</h2>
+          <span class="sub">* 저장 후 목록에서 확인</span>
+        </div>
+
+        <div class="field">
+          <label>매물 유형</label>
+          <select id="typeSelect">
+            <option value="shop">상가</option>
+            <option value="officetel">오피스텔</option>
+            <option value="apartment">아파트</option>
+            <option value="bizcenter">지식산업센터</option>
+            <option value="land_dev">토지(시행부지)</option>
+            <option value="land_single">토지(단독주택)</option>
+            <option value="land_general">토지(일반)</option>
+            <option value="factory">공장/창고</option>
+          </select>
+        </div>
+
+        <div class="field" id="buildingFieldWrap">
+          <label>건물 선택</label>
+          <select id="buildingSelect">
+            <option value="">건물 선택</option>
+          </select>
+          <div id="buildingInfo" style="margin-top:8px;"></div>
+        </div>
+
+        <hr class="soft"/>
+
+        <div class="row">
+          <div class="field">
+            <label>거래유형</label>
+            <select id="dealType">
+              <option>매매</option>
+              <option>전세</option>
+              <option>월세</option>
+              <option>임대</option>
+              <option>분양</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>상태</label>
+            <select id="status">
+              <option>거래가능</option>
+              <option>계약진행</option>
+              <option>보류</option>
+              <option>완료</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>매물나옴 체크</label>
+          <div class="switch">
+            <input type="checkbox" id="isListed" checked />
+            <span>현재 내놓은 매물(✅ 표시된 것만 필터/출력 가능)</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>메모(추가형)</label>
+          <div class="small" style="margin:-4px 0 10px;">상담/특이사항을 날짜별로 추가해두면 나중에 찾기 쉽습니다.</div>
+          <div id="memoList" class="attach-list"></div>
+          <button class="btn" type="button" id="btnAddMemo">+ 메모 추가</button>
+        </div>
+
+        <hr class="soft"/>
+
+        <div class="field">
+          <label>매물 설명 (인쇄 출력용)</label>
+          <div class="small" style="margin:-4px 0 10px;">체크한 항목만 매물설명서에 출력됩니다. AI 자동입력 없이 직접 입력하세요.</div>
+
+          <div class="desc-check-row">
+            <label class="switch">
+              <input type="checkbox" id="desc_location" onchange="toggleDescArea('location')"/>
+              <span>① 입지 분석</span>
+            </label>
+            <textarea id="desc_location_text" class="desc-textarea" placeholder="입지 분석 내용을 입력하세요..." style="display:none;"></textarea>
+          </div>
+
+          <div class="desc-check-row">
+            <label class="switch">
+              <input type="checkbox" id="desc_demand" onchange="toggleDescArea('demand')"/>
+              <span>② 수요 및 업종 적합성</span>
+            </label>
+            <textarea id="desc_demand_text" class="desc-textarea" placeholder="수요층, 적합 업종 등을 입력하세요..." style="display:none;"></textarea>
+          </div>
+
+          <div class="desc-check-row">
+            <label class="switch">
+              <input type="checkbox" id="desc_strength" onchange="toggleDescArea('strength')"/>
+              <span>③ 매물 강점</span>
+            </label>
+            <textarea id="desc_strength_text" class="desc-textarea" placeholder="이 매물의 핵심 강점을 입력하세요..." style="display:none;"></textarea>
+          </div>
+
+          <div class="desc-check-row">
+            <label class="switch">
+              <input type="checkbox" id="desc_notes" onchange="toggleDescArea('notes')"/>
+              <span>④ 계약 조건 및 유의사항</span>
+            </label>
+            <textarea id="desc_notes_text" class="desc-textarea" placeholder="계약 조건, 유의사항 등을 입력하세요..." style="display:none;"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn primary" id="btnSave">저장</button>
+        </div>
+
+        <p class="note">
+          - 저장 구조는 localStorage(listings)에 저장됩니다.<br/>
+          - 나중에 "리스트 출력/단건 견적서"는 이 데이터를 그대로 사용합니다.
+        </p>
+      </section>
+
+      <!-- RIGHT: 유형별 상세 입력 -->
+      <section class="card">
+        <div class="section-title">
+          <h2>유형별 상세 입력</h2>
+          <span class="sub">유형 선택에 따라 자동으로 바뀜</span>
+        </div>
+
+        <div id="dynamicFields"></div>
+
+        <p class="note">
+          - 상가: 층(B2/B1/1F/…)은 고정값으로 선택합니다.<br/>
+          - 토지/공장창고: 자료는 "URL 링크"로만 저장합니다.
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <!-- JS -->
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/register.js"></script>
+</body>
+</html>

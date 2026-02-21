@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>하이탑부동산 | 건물 마스터</title>
+
+  <!-- Pretendard -->
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="assets/css/app.css" />
+  <link rel="stylesheet" href="assets/css/buildings.css" />
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="brand-text">
+          <h1>건물 마스터(건축개요) 관리</h1>
+          <p>상가 평면도(B2/B1/1F/2F…) · 오피스텔 배치도 URL을 저장하고, 매물 등록에서 불러옵니다.</p>
+        </div>
+      </div>
+
+      <div class="actions">
+         <a href="home.html" class="btn">홈</a>
+         <a href="customers.html" class="btn">고객관리</a>
+         <a href="index.html" class="btn">매물목록</a>
+        <button class="btn" id="btnExport">백업(JSON)</button>
+        <button class="btn danger" id="btnReset">전체삭제</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- LEFT: FORM -->
+      <section class="card">
+        <h2 id="formTitle">건물 등록</h2>
+        <p class="hint">
+          파일 업로드는 하지 않습니다. 평면도/배치도는 <b>GitHub 등에 올린 URL</b>을 붙여넣는 방식입니다.
+        </p>
+
+        <!-- TYPE TABS -->
+        <div class="type-tabs" id="typeTabs">
+          <button class="tab active" data-type="shop">상가</button>
+          <button class="tab" data-type="officetel">오피스텔</button>
+        </div>
+
+        <!-- COMMON FIELDS -->
+        <div class="row">
+          <div class="field">
+            <label>건물명(필수)</label>
+            <input id="b_name" placeholder="예: 월드스퀘어 / 힐스테이트더운정 오피스텔" />
+          </div>
+          <div class="field">
+            <label>대표 주소</label>
+            <input id="b_address" placeholder="예: 파주시 ○○로 ○○" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>사용승인일</label>
+            <input id="b_approved" type="date" />
+          </div>
+          <div class="field">
+            <label>규모(지하/지상)</label>
+            <div class="row" style="gap:10px; margin-top:6px;">
+              <div class="field" style="margin:0;">
+                <div class="input-with-unit">
+                  <span class="unit" style="min-width:56px; justify-content:center;">지하</span>
+                  <input id="b_scale_b" type="number" min="0" step="1" placeholder="예: 3" />
+                  <span class="unit">층</span>
+                </div>
+              </div>
+              <div class="field" style="margin:0;">
+                <div class="input-with-unit">
+                  <span class="unit" style="min-width:56px; justify-content:center;">지상</span>
+                  <input id="b_scale_g" type="number" min="0" step="1" placeholder="예: 11" />
+                  <span class="unit">층</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>주차대수</label>
+            <input id="b_parking" placeholder="예: 120대 (유료/무료 메모 가능)" />
+          </div>
+          <div class="field"></div>
+        </div>
+
+        <!-- TYPE-SPECIFIC AREA -->
+        <div id="typeExtra"></div>
+
+        <div class="divider"></div>
+
+        <div class="form-actions">
+          <button class="btn" id="btnNew">새로작성</button>
+          <button class="btn primary" id="btnSave">저장</button>
+        </div>
+
+        <p class="note">
+          * 힐스테이트더운정은 <b>아파트/오피스텔을 분리</b>해서 각각 별도 건물로 등록하세요.<br/>
+          예: "힐스테이트더운정 아파트", "힐스테이트더운정 오피스텔"
+        </p>
+      </section>
+
+      <!-- RIGHT: LIST -->
+      <section class="card">
+        <h2 style="margin:0 0 10px;">등록된 건물</h2>
+        <div id="buildingList" class="building-list"></div>
+        
+      <!-- ✅ 페이징 UI 추가 (8개씩) -->
+      <div class="pager" id="pager" style="display:none;">
+      <button class="btn mini" id="btnPrevPage">이전</button>
+      <div class="page-info" id="pageInfo">1 / 1</div>
+      <button class="btn mini" id="btnNextPage">다음</button>
+  </div>
+        
+        <div id="empty" class="empty" style="display:none;">
+          등록된 건물이 없습니다. 왼쪽에서 먼저 등록해주세요.
+        </div>
+
+        <p class="note">
+          - 상가: 층 키는 <b>B2/B1/1F/2F/…</b> 고정입니다.<br/>
+          - 오피스텔: 배치도 URL은 최대 3개까지 저장합니다.
+        </p>
+      </section>
+    </main>
+
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <!-- JS -->
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/buildings.js"></script>
+</body>
+</html>

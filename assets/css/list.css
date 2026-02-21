@@ -67,3 +67,19 @@ td.center, th.center { text-align: center; }
 td.right, th.right { text-align: right; }
 .table-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
 .table-actions .right { display: flex; gap: 6px; flex-wrap: wrap; }
+/* 체크박스 가독성 개선 */
+.row-check,
+#checkAll {
+  width: 18px;
+  height: 18px;
+  accent-color: #C6A75E; /* 골드톤 */
+  cursor: pointer;
+}
+.row-check,
+#checkAll {
+  width: 18px;
+  height: 18px;
+  accent-color: #C6A75E;
+  cursor: pointer;
+  border: 1px solid rgba(212,175,55,0.6);
+}

@@ -60,7 +60,7 @@
   .ip-header .ip-print-date {
     font-size: 8.5pt;
     color: #666;
-    text-align: right;
+
   }
 
   /* ── 중앙 문서 제목 ────────────────────────────── */
@@ -95,15 +95,15 @@
   }
   .ip-summary-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 4pt 12pt;
   }
-  .ip-summary-item .sl { font-size: 8pt; color: #555; }
+  .ip-summary-item .sl { font-size: 7.5pt; color: #666; font-weight: 700; letter-spacing: 0.3px; }
   .ip-summary-item .sv {
     font-size: 10.5pt;
     font-weight: 800;
     color: #111;
-    text-align: right;
+
   }
   .ip-summary-item.wide {
     grid-column: span 2;

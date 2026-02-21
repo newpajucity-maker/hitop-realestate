@@ -259,7 +259,7 @@
   function deleteBuilding(id) {
     const arr = getBuildings();
     setBuildings(arr.filter((x) => x.id !== id));
-    renderList();
+    ();
     toast("삭제 완료");
   }
 
@@ -310,3 +310,38 @@ function renderList() {
     elList.appendChild(div);
   });
 }
+  // ✅ 탭 클릭 이벤트 (상가/오피스텔 전환)
+  if (elTabs) {
+    elTabs.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab");
+      if (!btn) return;
+      const t = btn.dataset.type;
+      if (!t) return;
+
+      currentType = t;
+      editId = null;
+
+      Array.from(elTabs.querySelectorAll(".tab")).forEach((b) =>
+        b.classList.toggle("active", b.dataset.type === t)
+      );
+
+      renderTypeExtra(currentType, null);
+      renderList();
+    });
+  }
+
+  // ✅ 저장/새로작성 버튼 이벤트 연결
+  const btnSave = document.getElementById("btnSave");
+  const btnNew = document.getElementById("btnNew");
+
+  if (btnSave) btnSave.addEventListener("click", saveBuilding);
+  if (btnNew) btnNew.addEventListener("click", () => {
+    clearForm();
+    toast("새로작성");
+  });
+
+  // ✅ 최초 렌더
+  renderTypeExtra(currentType, null);
+  renderList();
+
+})(); // ✅ 이게 없어서 SyntaxError 발생했음 (반드시 필요)

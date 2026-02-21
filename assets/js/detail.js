@@ -41,9 +41,18 @@
   btnEdit.addEventListener("click", () => {
     location.href = `register.html?id=${listing.id}`;
   });
-  if (btnInfoPrint) {
-    btnInfoPrint.addEventListener("click", () => {
-      renderInfoPrint(listing);
+  const btnInfoPrintCustomer = $("btnInfoPrintCustomer");
+  const btnInfoPrintData     = $("btnInfoPrintData");
+
+  if (btnInfoPrintCustomer) {
+    btnInfoPrintCustomer.addEventListener("click", () => {
+      renderInfoPrint(listing, false); // 고객용: 연락처 숨김
+      window.print();
+    });
+  }
+  if (btnInfoPrintData) {
+    btnInfoPrintData.addEventListener("click", () => {
+      renderInfoPrint(listing, true);  // 자료용: 연락처 포함
       window.print();
     });
   }
@@ -193,13 +202,12 @@
     return String(s ?? "").replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;");
   }
 
-  // ── 매물 설명서 출력 렌더링 (A4 전문 양식) ──
-  function renderInfoPrint(x) {
+  // ── 매물 설명서 출력 렌더링 ──
+  function renderInfoPrint(x, showContact) {
     if (!elInfoPrint) return;
 
     const title = x.title || [x.buildingName, x.unit || x.ho].filter(Boolean).join(" ") || "매물 설명";
-
-    // 주소 + 호실 조합
+    const unitTxt = x.unit ? x.unit + "호" : (x.ho ? x.ho : "");
     const addrParts = [x.address || ""];
     if (x.unit) addrParts.push(x.unit + "호");
     else if (x.ho) addrParts.push(x.ho);
@@ -212,70 +220,42 @@
     const bldArea = fmtArea(x.buildingAreaM2, x.buildingAreaPy);
     const floorTxt = x.floorGroup || guessFloorGroup(x.floor) || "-";
 
-    // 출력일
     const today = new Date();
     const dateStr = today.getFullYear() + "." +
       String(today.getMonth()+1).padStart(2,"0") + "." +
       String(today.getDate()).padStart(2,"0");
 
-    // 메모
     const memoText = Array.isArray(x.memoEntries) && x.memoEntries.length
       ? x.memoEntries.slice()
           .sort((a,b)=>String(b.date).localeCompare(String(a.date)))
           .map(m => (m.date ? "["+m.date+"] " : "") + (m.text || "")).filter(Boolean).join("\n")
       : (x.memo || "");
 
-    // 건물 마스터
     const bObj = x.buildingId ? (DataUtil.findBuildingById(x.buildingId) || null) : null;
-    const approved = bObj ? (bObj.approved || "-") : "-";
-    const mainFee = x.maintenanceFeeManwon ? Number(x.maintenanceFeeManwon).toLocaleString("ko-KR") + "만원" : "-";
+    const approved = bObj ? (bObj.approved || "") : "";
+    const parking  = bObj ? (bObj.parking  || "") : "";
+    const mainFee  = x.maintenanceFeeManwon ? Number(x.maintenanceFeeManwon).toLocaleString("ko-KR") + "만원" : "";
 
-    // 핵심 요약 테이블형
-    const areaVal = exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-");
-    const summaryGrid = `
-      <div class="ip-summary-body">
-        <div class="ip-sum-cell full">
-          <div class="ip-sum-label">건물명</div>
-          <div class="ip-sum-value">${esc(x.buildingName || title)}</div>
-        </div>
-        <div class="ip-sum-cell">
-          <div class="ip-sum-label">거래형태</div>
-          <div class="ip-sum-value">${esc(x.dealType || "-")}</div>
-        </div>
-        <div class="ip-sum-cell">
-          <div class="ip-sum-label">현황/상태</div>
-          <div class="ip-sum-value">${esc(x.status || "-")}</div>
-        </div>
-        <div class="ip-sum-cell">
-          <div class="ip-sum-label">층구분</div>
-          <div class="ip-sum-value">${esc(floorTxt)}</div>
-        </div>
-        <div class="ip-sum-cell">
-          <div class="ip-sum-label">면적 (전용)</div>
-          <div class="ip-sum-value">${esc(areaVal)}</div>
-        </div>
-        <div class="ip-sum-cell full">
-          <div class="ip-sum-label">금액</div>
-          <div class="ip-sum-value price">${esc(price)}</div>
-        </div>
-      </div>`;
+    // 핵심 요약 (HTML table)
+    const areaForSummary = exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-");
+    const supAreaForSummary = supArea !== "—" ? supArea : (bldArea !== "—" ? bldArea : "");
 
-    // 상세 정보 표
-    const tr = (k, v, isNum) =>
-      `<tr><th>${esc(k)}</th><td${isNum ? " class=\"num\"" : ""}>${esc(String(v ?? ""))}</td></tr>`;
+    // 상세 정보 행 생성
+    const tr = (k, v) => `<tr><th>${esc(k)}</th><td>${esc(String(v ?? ""))}</td></tr>`;
     const trows = [];
     trows.push(tr("위치(주소)", fullAddr));
     if (x.buildingName) trows.push(tr("건물명", x.buildingName));
-    if (exArea !== "—") trows.push(tr("전용면적", exArea, true));
-    if (supArea !== "—") trows.push(tr("분양(계약)면적", supArea, true));
-    if (landArea !== "—") trows.push(tr("토지면적", landArea, true));
-    if (bldArea !== "—") trows.push(tr("건축면적", bldArea, true));
+    if (exArea !== "—") trows.push(tr("전용면적", exArea));
+    if (supArea !== "—") trows.push(tr("분양(계약)면적", supArea));
+    if (landArea !== "—") trows.push(tr("토지면적", landArea));
+    if (bldArea !== "—") trows.push(tr("건축면적", bldArea));
     if (x.direction) trows.push(tr("향", x.direction));
-    if (mainFee !== "-") trows.push(tr("관리비", mainFee, true));
-    if (approved !== "-") trows.push(tr("사용승인일", approved));
+    if (x.currentBiz) trows.push(tr("현업종", x.currentBiz));
+    if (parking) trows.push(tr("주차대수", parking));
+    if (mainFee) trows.push(tr("관리비", mainFee));
+    if (approved) trows.push(tr("사용승인일", approved));
     if (x.otType) trows.push(tr("타입", x.otType));
     if (x.rooms) trows.push(tr("방수", x.rooms + "R"));
-    if (x.currentBiz) trows.push(tr("현업종", x.currentBiz));
     if (x.leaseEnd) trows.push(tr("계약만료일", x.leaseEnd));
     if (x.vatMode && x.vatMode !== "해당없음") trows.push(tr("부가세", x.vatMode + " " + (x.vatRate||10) + "%"));
     if (x.landJimo) trows.push(tr("지목", x.landJimo));
@@ -285,8 +265,15 @@
     if (x.roadAccess) trows.push(tr("도로접합", x.roadAccess));
     if (x.clearHeightM) trows.push(tr("층고", x.clearHeightM + "m"));
     if (x.powerKw) trows.push(tr("전력", x.powerKw + "kW"));
+    // 연락처 - 자료용만
+    if (showContact) {
+      if (x.ownerName) trows.push(tr("소유주", x.ownerName));
+      if (x.ownerPhone) trows.push(tr("소유주 연락처", x.ownerPhone));
+      if (x.tenantName) trows.push(tr("임차인", x.tenantName));
+      if (x.tenantPhone) trows.push(tr("임차인 연락처", x.tenantPhone));
+    }
 
-    // 매물 설명 섹션 (체크 항목만)
+    // 매물 설명 섹션
     const dc = x.descChecks || {};
     const descDefs = [
       { key:"location",  title:"① 입지 분석",             txtKey:"locationText"  },
@@ -302,35 +289,52 @@
         </div>`).join("");
 
     elInfoPrint.innerHTML = `
-      <div class="ip-header">
-        <div>
-          <div class="ip-brand">하이탑부동산</div>
-          <div class="ip-tel">☎ 031-949-8969</div>
-        </div>
-        <div class="ip-print-date">출력일: ${dateStr}</div>
-      </div>
+      <div class="ip-top-date">출력일: ${dateStr}${showContact ? " [자료용]" : " [고객용]"}</div>
 
       <div class="ip-doc-title">부동산 매물 설명서</div>
 
       <div class="ip-summary">
         <div class="ip-summary-title">핵심 요약</div>
-        ${summaryGrid}
+        <table class="ip-sum-table">
+          <tr>
+            <th>건물명</th>
+            <td colspan="3"><strong>${esc(x.buildingName || title)}</strong>${unitTxt ? `&nbsp;&nbsp;<span class="ip-unit">${esc(unitTxt)}</span>` : ""}</td>
+          </tr>
+          <tr>
+            <th>거래형태</th>
+            <td>${esc(x.dealType || "-")}</td>
+            <th>상태</th>
+            <td>${esc(x.status || "-")}</td>
+          </tr>
+          <tr>
+            <th>전용면적</th>
+            <td>${esc(areaForSummary)}</td>
+            <th>분양면적</th>
+            <td>${esc(supAreaForSummary || "-")}</td>
+          </tr>
+          <tr class="ip-price-row">
+            <th>금액</th>
+            <td colspan="3">${esc(price)}</td>
+          </tr>
+        </table>
       </div>
 
       <div class="ip-section-title">상세 정보</div>
       <table class="ip-table"><tbody>${trows.join("")}</tbody></table>
 
-      ${descHtml ? `<div class="ip-section-title" style="margin-top:12pt;">매물 설명</div><div>${descHtml}</div>` : ""}
-
+      ${descHtml ? `<div class="ip-section-title" style="margin-top:10pt;">매물 설명</div>${descHtml}` : ""}
       ${memoText ? `<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">${esc(memoText)}</div></div>` : ""}
+
+      <div class="ip-write-memo">
+        <div class="ip-write-memo-title">메 모</div>
+        <div class="ip-write-memo-body"></div>
+      </div>
 
       <div class="ip-footer">
         <div class="ip-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
         <div class="ip-footer-note">본 설명서는 내부 참고용이며 공식 계약서가 아닙니다.</div>
       </div>
     `;
-  }
-
   function guessFloorGroup(floor) {
     const f = String(floor || "").toUpperCase();
     if (f === "1F" || f.includes("1F")) return "1층";

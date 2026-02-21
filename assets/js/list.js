@@ -107,7 +107,7 @@
       elBtnPrintOne.addEventListener("click", () => {
         const sel = Array.from(state.selected);
         if (sel.length !== 1) return alert("단건 출력은 1개만 선택해주세요.");
-        location.href = `detail.html?id=${sel[0]}&print=info`;
+        location.href = `detail.html?id=${sel[0]}`;
       });
     }
 

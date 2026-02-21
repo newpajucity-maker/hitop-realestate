@@ -1,13 +1,13 @@
-/* assets/css/info-print.css  - A4 매물설명서 전용 (전면 재설계) */
+/* assets/css/info-print.css - A4 매물설명서 전용 */
 
 #infoPrint { display: none; }
 
 @media print {
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; margin: 0; padding: 0; }
 
   @page {
     size: A4 portrait;
-    margin: 15mm 20mm 15mm 20mm;
+    margin: 12mm 18mm 12mm 18mm;
   }
 
   body {
@@ -15,12 +15,10 @@
     color: #111 !important;
     font-family: "Pretendard", "Apple SD Gothic Neo", "NanumGothic", sans-serif;
     font-size: 10pt;
-    line-height: 1.55;
-    margin: 0 !important;
-    padding: 0 !important;
+    line-height: 1.5;
   }
 
-  /* 화면 UI 전부 숨김 */
+  /* 화면 UI 숨김 */
   .topbar, .page > .grid, .toast, #estimatePrint,
   .btn, .actions, .filters, .table-wrap,
   .page > *:not(#infoPrint) { display: none !important; }
@@ -28,35 +26,14 @@
   #infoPrint {
     display: block !important;
     width: 100%;
-    padding: 0;
-    margin: 0;
   }
 
-  /* ── 헤더 ── */
-  .ip-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding-bottom: 7pt;
-    border-bottom: 2.5pt solid #1a2b50;
-    margin-bottom: 10pt;
-  }
-  .ip-brand {
-    font-size: 14pt;
-    font-weight: 900;
-    color: #1a2b50;
-    letter-spacing: -0.5px;
-  }
-  .ip-tel {
-    font-size: 9.5pt;
-    color: #1a2b50;
-    font-weight: 700;
-    margin-top: 2pt;
-  }
-  .ip-print-date {
+  /* ── 출력일 ── */
+  .ip-top-date {
+    text-align: right;
     font-size: 8pt;
     color: #888;
-    text-align: right;
+    margin-bottom: 6pt;
   }
 
   /* ── 문서 제목 ── */
@@ -66,15 +43,16 @@
     font-weight: 900;
     letter-spacing: 4px;
     color: #1a2b50;
-    margin: 0 0 12pt;
-    padding-bottom: 7pt;
+    padding: 6pt 0;
+    border-top: 2.5pt solid #1a2b50;
     border-bottom: 1.5pt solid #c8b14a;
+    margin-bottom: 10pt;
   }
 
-  /* ── 핵심 요약 테이블형 박스 ── */
+  /* ── 핵심 요약 ── */
   .ip-summary {
     border: 1.5pt solid #1a2b50;
-    margin-bottom: 12pt;
+    margin-bottom: 10pt;
     page-break-inside: avoid;
   }
   .ip-summary-title {
@@ -85,39 +63,46 @@
     padding: 4pt 8pt;
     letter-spacing: 1px;
   }
-  .ip-summary-body {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-top: none;
+  .ip-sum-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
   }
-  .ip-sum-cell {
-    padding: 7pt 10pt;
-    border-bottom: 0.5pt solid #ddd;
-    border-right: 0.5pt solid #ddd;
-  }
-  .ip-sum-cell:nth-child(even) { border-right: none; }
-  .ip-sum-cell.full {
-    grid-column: 1 / -1;
-    border-right: none;
-  }
-  .ip-sum-cell:last-child,
-  .ip-sum-cell:nth-last-child(2):not(.full) { border-bottom: none; }
-  .ip-sum-label {
-    font-size: 7.5pt;
-    font-weight: 700;
-    color: #666;
-    letter-spacing: 0.3px;
-    margin-bottom: 2pt;
-  }
-  .ip-sum-value {
-    font-size: 11pt;
-    font-weight: 800;
-    color: #111;
-    word-break: break-word;
-  }
-  .ip-sum-value.price {
-    font-size: 13pt;
+  .ip-sum-table th {
+    background: #f0f3f8;
     color: #1a2b50;
+    font-weight: 700;
+    font-size: 8.5pt;
+    padding: 6pt 8pt;
+    border: 0.5pt solid #ccc;
+    white-space: nowrap;
+    width: 60pt;
+    text-align: left;
+  }
+  .ip-sum-table td {
+    padding: 6pt 10pt;
+    border: 0.5pt solid #ccc;
+    font-size: 10pt;
+    background: #fff;
+    text-align: left;
+  }
+  .ip-sum-table tr.ip-price-row th {
+    background: #1a2b50;
+    color: #fff;
+  }
+  .ip-sum-table tr.ip-price-row td {
+    font-size: 13pt;
+    font-weight: 900;
+    color: #1a2b50;
+    background: #f7f8fc;
+  }
+  .ip-unit {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1a2b50;
+    background: rgba(26,43,80,0.08);
+    padding: 1pt 6pt;
+    border-radius: 3pt;
   }
 
   /* ── 섹션 타이틀 ── */
@@ -127,7 +112,7 @@
     color: #1a2b50;
     border-left: 3.5pt solid #c8b14a;
     padding-left: 6pt;
-    margin: 10pt 0 5pt;
+    margin: 10pt 0 4pt;
     letter-spacing: 0.5px;
   }
 
@@ -154,72 +139,91 @@
     border: 0.5pt solid #ccc;
     padding: 5pt 8pt;
     background: #fff;
-    line-height: 1.5;
+    text-align: left;
     word-break: break-word;
   }
-  .ip-table td.num { text-align: right; font-weight: 700; }
   .ip-table tr:nth-child(even) td { background: #f8f9fc; }
 
   /* ── 설명 섹션 ── */
-  .ip-desc-block {
-    margin-bottom: 8pt;
-    page-break-inside: avoid;
-  }
+  .ip-desc-block { margin-bottom: 6pt; page-break-inside: avoid; }
   .ip-desc-block .db-title {
     font-size: 8.5pt;
     font-weight: 900;
     color: #fff;
     background: #1a2b50;
-    padding: 3.5pt 8pt;
-    margin-bottom: 0;
+    padding: 3pt 8pt;
   }
   .ip-desc-block .db-content {
     font-size: 9.5pt;
-    line-height: 1.65;
-    padding: 6pt 8pt;
+    line-height: 1.6;
+    padding: 5pt 8pt;
     border: 0.5pt solid #ccc;
     border-top: none;
-    background: #fff;
     white-space: pre-wrap;
     word-break: break-word;
   }
 
-  /* ── 메모 ── */
-  .ip-memo-block {
-    margin-top: 8pt;
-    page-break-inside: avoid;
-  }
+  /* ── 내부 메모 ── */
+  .ip-memo-block { margin-top: 8pt; page-break-inside: avoid; }
   .ip-memo-block .db-title {
-    font-size: 8.5pt;
-    font-weight: 900;
-    color: #fff;
-    background: #555;
-    padding: 3.5pt 8pt;
+    font-size: 8.5pt; font-weight: 900; color: #fff;
+    background: #555; padding: 3pt 8pt;
   }
   .ip-memo-block .db-content {
-    font-size: 9pt;
-    line-height: 1.65;
-    padding: 6pt 8pt;
-    border: 0.5pt solid #ccc;
-    border-top: none;
-    background: #fafafa;
-    white-space: pre-wrap;
-    word-break: break-word;
+    font-size: 9pt; line-height: 1.6;
+    padding: 5pt 8pt; border: 0.5pt solid #ccc;
+    border-top: none; background: #fafafa;
+    white-space: pre-wrap; word-break: break-word;
   }
 
-  /* ── 푸터 ── */
+  /* ── 손글씨 메모 박스 ── */
+  .ip-write-memo {
+    margin-top: 10pt;
+    border: 1pt solid #bbb;
+    flex: 1;
+    page-break-inside: avoid;
+    min-height: 60pt;
+  }
+  .ip-write-memo-title {
+    font-size: 8.5pt;
+    font-weight: 900;
+    color: #555;
+    padding: 3pt 8pt;
+    border-bottom: 0.5pt solid #bbb;
+    letter-spacing: 2px;
+  }
+  .ip-write-memo-body {
+    height: 70pt;
+    /* 줄 긋기 */
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 17pt,
+      #e0e0e0 17pt,
+      #e0e0e0 18pt
+    );
+    background-position: 0 22pt;
+  }
+
+  /* ── 하단 푸터 ── */
   .ip-footer {
-    margin-top: 14pt;
+    margin-top: 10pt;
     padding-top: 6pt;
-    border-top: 1pt solid #ccc;
+    border-top: 1.5pt solid #1a2b50;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 8pt;
-    color: #666;
   }
-  .ip-footer-main { font-weight: 700; color: #1a2b50; font-size: 9pt; }
-  .ip-footer-note { color: #999; font-size: 7.5pt; }
+  .ip-footer-main {
+    font-size: 13pt;
+    font-weight: 900;
+    color: #1a2b50;
+    letter-spacing: -0.3px;
+  }
+  .ip-footer-note {
+    font-size: 7.5pt;
+    color: #999;
+  }
 
-  table, tr, td, th, .ip-summary, .ip-table, .ip-desc-block { page-break-inside: avoid; }
+  table, tr, td, th { page-break-inside: avoid; }
 }

@@ -7,7 +7,7 @@
 
   @page {
     size: A4 portrait;
-    margin: 12mm 18mm 12mm 18mm;
+    margin: 3mm 22mm 5mm 22mm;
   }
 
   body {
@@ -26,6 +26,8 @@
   #infoPrint {
     display: block !important;
     width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   /* ── 출력일 ── */
@@ -123,6 +125,8 @@
     font-size: 9.5pt;
     page-break-inside: avoid;
     table-layout: fixed;
+    max-width: 100%;
+    overflow: hidden;
   }
   .ip-table th {
     background: #1a2b50;
@@ -193,16 +197,8 @@
     letter-spacing: 2px;
   }
   .ip-write-memo-body {
-    height: 70pt;
-    /* 줄 긋기 */
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent,
-      transparent 17pt,
-      #e0e0e0 17pt,
-      #e0e0e0 18pt
-    );
-    background-position: 0 22pt;
+    height: 90pt;
+    background: #fff;
   }
 
   /* ── 하단 푸터 ── */

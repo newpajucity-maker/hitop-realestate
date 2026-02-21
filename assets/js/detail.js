@@ -297,7 +297,7 @@
         <table class="ip-sum-table">
           <tr>
             <th>건물명</th>
-            <td colspan="3"><strong>${esc(x.buildingName || title)}</strong>${unitTxt ? `&nbsp;&nbsp;<span class="ip-unit">${esc(unitTxt)}</span>` : ""}</td>
+            <td colspan="3"><strong>${esc(x.buildingName || title)}</strong>${unitTxt ? "&nbsp;&nbsp;<span class='ip-unit'>" + esc(unitTxt) + "</span>" : ""}</td>
           </tr>
           <tr>
             <th>거래형태</th>
@@ -321,8 +321,8 @@
       <div class="ip-section-title">상세 정보</div>
       <table class="ip-table"><tbody>${trows.join("")}</tbody></table>
 
-      ${descHtml ? `<div class="ip-section-title" style="margin-top:10pt;">매물 설명</div>${descHtml}` : ""}
-      ${memoText ? `<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">${esc(memoText)}</div></div>` : ""}
+      ${descHtml ? '<div class="ip-section-title" style="margin-top:10pt;">매물 설명</div>' + descHtml : ""}
+      ${memoText ? '<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">' + esc(memoText) + "</div></div>" : ""}
 
       <div class="ip-write-memo">
         <div class="ip-write-memo-title">메 모</div>
@@ -334,6 +334,8 @@
         <div class="ip-footer-note">본 설명서는 내부 참고용이며 공식 계약서가 아닙니다.</div>
       </div>
     `;
+  }
+
   function guessFloorGroup(floor) {
     const f = String(floor || "").toUpperCase();
     if (f === "1F" || f.includes("1F")) return "1층";

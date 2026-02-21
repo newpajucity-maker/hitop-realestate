@@ -256,12 +256,14 @@
     return String(s ?? "").replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;");
   }
 
-  function deleteBuilding(id) {
-    const arr = getBuildings();
-    setBuildings(arr.filter((x) => x.id !== id));
-    ();
-    toast("삭제 완료");
-  }
+function deleteBuilding(id) {
+  const arr = getBuildings();
+  setBuildings(arr.filter((x) => x.id !== id));
+
+  if (editId === id) clearForm();  // 현재 편집 중인 항목 삭제 시 초기화
+  renderList();
+  toast("삭제 완료");
+}
 
 function renderList() {
   let arr = getBuildings();

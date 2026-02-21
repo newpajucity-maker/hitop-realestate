@@ -1,90 +1,341 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>하이탑부동산 | 매물 상세</title>
+// assets/js/detail.js
+(function () {
+  "use strict";
 
-  <link rel="stylesheet" as="style" crossorigin
-        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  const $ = (id) => document.getElementById(id);
 
-  <link rel="stylesheet" href="assets/css/app.css"/>
-  <link rel="stylesheet" href="assets/css/detail.css"/>
-  <link rel="stylesheet" href="assets/css/estimate-print.css"/>
-  <link rel="stylesheet" href="assets/css/info-print.css"/>
-</head>
+  const elTitle = $("dTitle");
+  const elSub = $("dSub");
+  const elMeta = $("dMeta");
+  const elInfo = $("dInfo");
+  const elPlanBox = $("dPlanBox");
 
-<body>
-  <div class="page">
+  const btnBack = $("btnBack");
+  const btnEstimate = $("btnEstimate");
+  const btnEdit = $("btnEdit");
+  const elInfoPrint = document.getElementById("infoPrint");
 
-    <header class="topbar">
-      <div class="brand">
-        <div class="logo"></div>
-        <div class="brand-text">
-          <h1>매물 상세</h1>
-          <p>단건 정보 확인 + 풀 견적서 출력</p>
-        </div>
+  const qs = new URLSearchParams(location.search);
+  const id = qs.get("id");
+  const printMode = qs.get("print");
+
+  if (!id) {
+    alert("잘못된 접근입니다. id가 없습니다.");
+    location.href = "index.html";
+    return;
+  }
+
+  const listing = DataUtil.getListings().find(x => x.id === id);
+  if (!listing) {
+    alert("매물을 찾을 수 없습니다.");
+    location.href = "index.html";
+    return;
+  }
+
+  btnBack.addEventListener("click", () => history.back());
+  btnEstimate.addEventListener("click", () => {
+    window.EstimateUtil.renderAndPrint(listing);
+  });
+  btnEdit.addEventListener("click", () => {
+    location.href = `register.html?id=${listing.id}`;
+  });
+  const btnInfoPrintCustomer = $("btnInfoPrintCustomer");
+  const btnInfoPrintData     = $("btnInfoPrintData");
+
+  if (btnInfoPrintCustomer) {
+    btnInfoPrintCustomer.addEventListener("click", () => {
+      renderInfoPrint(listing, false); // 고객용: 연락처 숨김
+      window.print();
+    });
+  }
+  if (btnInfoPrintData) {
+    btnInfoPrintData.addEventListener("click", () => {
+      renderInfoPrint(listing, true);  // 자료용: 연락처 포함
+      window.print();
+    });
+  }
+
+  renderDetail(listing);
+
+
+
+  function renderDetail(x) {
+    elTitle.textContent = x.title || x.buildingName || "(제목 없음)";
+
+    const head = [labelByType(x.type), x.buildingName || "", x.address || ""].filter(Boolean).join(" · ");
+    elSub.textContent = head;
+
+    elMeta.innerHTML = "";
+    elMeta.appendChild(metaBox("거래유형", x.dealType || "-"));
+    elMeta.appendChild(metaBox("상태", x.status || "-"));
+    elMeta.appendChild(metaBox("매물나옴", x.isListed ? "✅" : "—"));
+    elMeta.appendChild(metaBox("향", x.direction || "—"));
+
+    elInfo.innerHTML = "";
+    addInfo("주소", x.address || "—");
+    if (x.buildingName) addInfo("건물명", x.buildingName);
+    if (x.unit) addInfo("호실", x.unit);
+    if (x.ho) addInfo("호수", x.ho);
+    if (x.floorGroup) addInfo("층수", x.floorGroup);
+    else if (x.floor) addInfo("층", x.floor);
+    if (x.areaExclusiveM2 || x.areaExclusivePy) addInfo("전용면적", fmtArea(x.areaExclusiveM2, x.areaExclusivePy));
+    if (x.areaSupplyM2 || x.areaSupplyPy) addInfo("분양면적", fmtArea(x.areaSupplyM2, x.areaSupplyPy));
+    if (x.landAreaM2 || x.landAreaPy) addInfo("토지면적", fmtArea(x.landAreaM2, x.landAreaPy));
+    if (x.buildingAreaM2 || x.buildingAreaPy) addInfo("건축면적", fmtArea(x.buildingAreaM2, x.buildingAreaPy));
+
+    const p = priceText(x);
+    if (p) addInfo("가격", p);
+
+    if (x.ownerName) addInfo("소유주", `${x.ownerName}${x.ownerPhone ? " ("+x.ownerPhone+")" : ""}`);
+    if (x.tenantName) addInfo("임차인", `${x.tenantName}${x.tenantPhone ? " ("+x.tenantPhone+")" : ""}`);
+    if (x.leaseEnd) addInfo("계약만료", x.leaseEnd);
+    if (Array.isArray(x.memoEntries) && x.memoEntries.length) {
+      const t = x.memoEntries
+        .slice()
+        .sort((a,b)=>String(b.date).localeCompare(String(a.date)))
+        .map(m => `${m.date || ""}  ${m.text || ""}`.trim())
+        .join("\n");
+      if (t) addInfo("메모", t);
+    } else if (x.memo) {
+      addInfo("메모", x.memo);
+    }
+
+    renderPlan(x);
+  }
+
+  function renderPlan(x) {
+    elPlanBox.innerHTML = "";
+    const b = x.buildingId ? DataUtil.findBuildingById(x.buildingId) : null;
+
+    if (x.type === "shop" && b?.floorplans) {
+      const key = x.floor || (x.floorGroup === "1층" ? "1F" : x.floorGroup === "2층" ? "2F" : "3F");
+      const url = b.floorplans[key];
+      if (url) {
+        elPlanBox.innerHTML = `
+          <div class="image-box">
+            <img src="${escapeAttr(url)}" alt="평면도">
+            <div class="small" style="margin-top:8px;">${esc(key)} 평면도</div>
+          </div>`;
+        return;
+      }
+    }
+
+    if ((x.type === "officetel" || x.type === "apartment") && b?.layouts?.length) {
+      elPlanBox.innerHTML = `
+        <div class="image-box">
+          <img src="${escapeAttr(b.layouts[0])}" alt="배치도">
+          <div class="small" style="margin-top:8px;">호수 배치도</div>
+        </div>`;
+      return;
+    }
+
+    if ((x.type.startsWith("land") || x.type === "factory") && Array.isArray(x.attachments) && x.attachments.length) {
+      const links = x.attachments.map(a =>
+        `<div class="small">- <a href="${esc(a.url)}" target="_blank">${esc(a.label || "자료")}</a></div>`
+      ).join("");
+      elPlanBox.innerHTML = `<div class="readonly-box">${links}</div>`;
+      return;
+    }
+
+    elPlanBox.innerHTML = `<div class="small">등록된 도면/자료가 없습니다.</div>`;
+  }
+
+  function metaBox(label, value) {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `<div class="label">${esc(label)}</div><div class="value">${esc(value)}</div>`;
+    return div;
+  }
+
+  function addInfo(k, v) {
+    const row = document.createElement("div");
+    row.className = "info-row";
+    row.innerHTML = `<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`;
+    elInfo.appendChild(row);
+  }
+
+  function fmtArea(m2, py) {
+    const mm = (m2 && Number(m2) > 0) ? `${fmtNum(m2)}㎡` : "";
+    const pp = (py && Number(py) > 0) ? `(${fmtNum(py)}평)` : "";
+    const result = [mm, pp].filter(Boolean).join(" ");
+    return result || "—";
+  }
+
+  function priceText(x) {
+    const man = (n) => (n && Number(n) ? Number(n).toLocaleString("ko-KR")+"만원" : "");
+    if (x.type === "shop" || x.type === "bizcenter" || x.type === "factory") {
+      if (x.dealType === "임대" || x.dealType === "월세") return `보증금 ${man(x.depositManwon)} / 월세 ${man(x.rentManwon)}`;
+      if (x.dealType === "매매" || x.dealType === "분양") return x.salePriceManwon ? `매매 ${man(x.salePriceManwon)}` : "";
+    }
+    if (x.type === "officetel" || x.type === "apartment") {
+      if (x.dealType === "전세") return x.jeonsePriceManwon ? `전세 ${man(x.jeonsePriceManwon)}` : "";
+      if (x.dealType === "월세" || x.dealType === "임대") return `보증금 ${man(x.depositManwon)} / 월세 ${man(x.rentManwon)}`;
+      if (x.dealType === "매매" || x.dealType === "분양") return x.salePriceManwon ? `매매 ${man(x.salePriceManwon)}` : "";
+    }
+    if (x.type.startsWith("land")) return x.salePriceManwon ? `매매 ${man(x.salePriceManwon)}` : "";
+    return "";
+  }
+
+  function labelByType(t) {
+    const map = { shop:"상가", officetel:"오피스텔", apartment:"아파트", bizcenter:"지식산업센터",
+      factory:"공장/창고", land_dev:"토지(시행)", land_single:"토지(단독)", land_general:"토지(일반)" };
+    return map[t] || "매물";
+  }
+
+  function fmtNum(v) {
+    const n = Number(v);
+    if (!isFinite(n)) return String(v ?? "");
+    return String(v).includes(".") ? n.toFixed(2).replace(/\.00$/, "") : n.toLocaleString("ko-KR");
+  }
+
+  function esc(s) {
+    return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  }
+
+  function escapeAttr(s) {
+    return String(s ?? "").replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  }
+
+  // ── 매물 설명서 출력 렌더링 ──
+  function renderInfoPrint(x, showContact) {
+    if (!elInfoPrint) return;
+
+    const title = x.title || [x.buildingName, x.unit || x.ho].filter(Boolean).join(" ") || "매물 설명";
+    const unitTxt = x.unit ? x.unit + "호" : (x.ho ? x.ho : "");
+    const addrParts = [x.address || ""];
+    if (x.unit) addrParts.push(x.unit + "호");
+    else if (x.ho) addrParts.push(x.ho);
+    const fullAddr = addrParts.filter(Boolean).join(" ") || "-";
+
+    const price = priceText(x) || "-";
+    const exArea = fmtArea(x.areaExclusiveM2, x.areaExclusivePy);
+    const supArea = fmtArea(x.areaSupplyM2, x.areaSupplyPy);
+    const landArea = fmtArea(x.landAreaM2, x.landAreaPy);
+    const bldArea = fmtArea(x.buildingAreaM2, x.buildingAreaPy);
+    const floorTxt = x.floorGroup || guessFloorGroup(x.floor) || "-";
+
+    const today = new Date();
+    const dateStr = today.getFullYear() + "." +
+      String(today.getMonth()+1).padStart(2,"0") + "." +
+      String(today.getDate()).padStart(2,"0");
+
+    const memoText = Array.isArray(x.memoEntries) && x.memoEntries.length
+      ? x.memoEntries.slice()
+          .sort((a,b)=>String(b.date).localeCompare(String(a.date)))
+          .map(m => (m.date ? "["+m.date+"] " : "") + (m.text || "")).filter(Boolean).join("\n")
+      : (x.memo || "");
+
+    const bObj = x.buildingId ? (DataUtil.findBuildingById(x.buildingId) || null) : null;
+    const approved = bObj ? (bObj.approved || "") : "";
+    const parking  = bObj ? (bObj.parking  || "") : "";
+    const mainFee  = x.maintenanceFeeManwon ? Number(x.maintenanceFeeManwon).toLocaleString("ko-KR") + "만원" : "";
+
+    // 핵심 요약 (HTML table)
+    const areaForSummary = exArea !== "—" ? exArea : (landArea !== "—" ? landArea : "-");
+    const supAreaForSummary = supArea !== "—" ? supArea : (bldArea !== "—" ? bldArea : "");
+
+    // 상세 정보 행 생성
+    const tr = (k, v) => `<tr><th>${esc(k)}</th><td>${esc(String(v ?? ""))}</td></tr>`;
+    const trows = [];
+    trows.push(tr("위치(주소)", fullAddr));
+    if (x.buildingName) trows.push(tr("건물명", x.buildingName));
+    if (exArea !== "—") trows.push(tr("전용면적", exArea));
+    if (supArea !== "—") trows.push(tr("분양(계약)면적", supArea));
+    if (landArea !== "—") trows.push(tr("토지면적", landArea));
+    if (bldArea !== "—") trows.push(tr("건축면적", bldArea));
+    if (x.direction) trows.push(tr("향", x.direction));
+    if (x.currentBiz) trows.push(tr("현업종", x.currentBiz));
+    if (parking) trows.push(tr("주차대수", parking));
+    if (mainFee) trows.push(tr("관리비", mainFee));
+    if (approved) trows.push(tr("사용승인일", approved));
+    if (x.otType) trows.push(tr("타입", x.otType));
+    if (x.rooms) trows.push(tr("방수", x.rooms + "R"));
+    if (x.leaseEnd) trows.push(tr("계약만료일", x.leaseEnd));
+    if (x.vatMode && x.vatMode !== "해당없음") trows.push(tr("부가세", x.vatMode + " " + (x.vatRate||10) + "%"));
+    if (x.landJimo) trows.push(tr("지목", x.landJimo));
+    if (x.landUseZone) trows.push(tr("용도지역", x.landUseZone));
+    if (x.coverageRatio) trows.push(tr("건폐율", x.coverageRatio + "%"));
+    if (x.farRatio) trows.push(tr("용적률", x.farRatio + "%"));
+    if (x.roadAccess) trows.push(tr("도로접합", x.roadAccess));
+    if (x.clearHeightM) trows.push(tr("층고", x.clearHeightM + "m"));
+    if (x.powerKw) trows.push(tr("전력", x.powerKw + "kW"));
+    // 연락처 - 자료용만
+    if (showContact) {
+      if (x.ownerName) trows.push(tr("소유주", x.ownerName));
+      if (x.ownerPhone) trows.push(tr("소유주 연락처", x.ownerPhone));
+      if (x.tenantName) trows.push(tr("임차인", x.tenantName));
+      if (x.tenantPhone) trows.push(tr("임차인 연락처", x.tenantPhone));
+    }
+
+    // 매물 설명 섹션
+    const dc = x.descChecks || {};
+    const descDefs = [
+      { key:"location",  title:"① 입지 분석",             txtKey:"locationText"  },
+      { key:"demand",    title:"② 수요 및 업종 적합성",   txtKey:"demandText"    },
+      { key:"strength",  title:"③ 매물 강점",             txtKey:"strengthText"  },
+      { key:"notes",     title:"④ 계약 조건 및 유의사항", txtKey:"notesText"     },
+    ];
+    const descHtml = descDefs
+      .filter(b => dc[b.key] && (dc[b.txtKey]||"").trim())
+      .map(b => `<div class="ip-desc-block">
+          <div class="db-title">${b.title}</div>
+          <div class="db-content">${esc((dc[b.txtKey]||"").trim())}</div>
+        </div>`).join("");
+
+    elInfoPrint.innerHTML = `
+      <div class="ip-top-date">출력일: ${dateStr}${showContact ? " [자료용]" : " [고객용]"}</div>
+
+      <div class="ip-doc-title">부동산 매물 설명서</div>
+
+      <div class="ip-summary">
+        <div class="ip-summary-title">핵심 요약</div>
+        <table class="ip-sum-table">
+          <tr>
+            <th>건물명</th>
+            <td colspan="3"><strong>${esc(x.buildingName || title)}</strong>${unitTxt ? "&nbsp;&nbsp;<span class='ip-unit'>" + esc(unitTxt) + "</span>" : ""}</td>
+          </tr>
+          <tr>
+            <th>거래형태</th>
+            <td>${esc(x.dealType || "-")}</td>
+            <th>상태</th>
+            <td>${esc(x.status || "-")}</td>
+          </tr>
+          <tr>
+            <th>전용면적</th>
+            <td>${esc(areaForSummary)}</td>
+            <th>분양면적</th>
+            <td>${esc(supAreaForSummary || "-")}</td>
+          </tr>
+          <tr class="ip-price-row">
+            <th>금액</th>
+            <td colspan="3">${esc(price)}</td>
+          </tr>
+        </table>
       </div>
-      <div class="actions">
-        <button class="btn ghost" onclick="location.href='home.html'">홈</button>
-        <button class="btn ghost" id="btnBack">뒤로</button>
-        <button class="btn" id="btnEdit">수정</button>
-        <button class="btn" id="btnInfoPrintCustomer">고객용 출력</button>
-        <button class="btn" id="btnInfoPrintData">자료용 출력</button>
-        <button class="btn primary" id="btnEstimate">견적서 출력(풀)</button>
+
+      <div class="ip-section-title">상세 정보</div>
+      <table class="ip-table"><tbody>${trows.join("")}</tbody></table>
+
+      ${descHtml ? '<div class="ip-section-title" style="margin-top:10pt;">매물 설명</div>' + descHtml : ""}
+      ${memoText ? '<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">' + esc(memoText) + "</div></div>" : ""}
+
+      <div class="ip-write-memo">
+        <div class="ip-write-memo-title">메 모</div>
+        <div class="ip-write-memo-body"></div>
       </div>
-    </header>
 
-    <div class="grid">
-      <!-- LEFT -->
-      <section class="card">
-        <div class="kv">
-          <div class="title" id="dTitle"></div>
-          <div class="sub" id="dSub"></div>
-        </div>
+      <div class="ip-footer">
+        <div class="ip-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
+        <div class="ip-footer-note">본 설명서는 내부 참고용이며 공식 계약서가 아닙니다.</div>
+      </div>
+    `;
+  }
 
-        <div class="meta" id="dMeta"></div>
+  function guessFloorGroup(floor) {
+    const f = String(floor || "").toUpperCase();
+    if (f === "1F" || f.includes("1F")) return "1층";
+    if (f === "2F" || f.includes("2F")) return "2층";
+    return "상층부";
+  }
 
-        <div style="margin-top:14px;">
-          <div class="section-title">
-            <h2>상세 정보</h2>
-            <span class="sub">내부 확인용</span>
-          </div>
-          <div class="info-list" id="dInfo"></div>
-        </div>
-      </section>
-
-      <!-- RIGHT -->
-      <section class="card">
-        <div class="section-title">
-          <h2>도면/자료</h2>
-          <span class="sub">건물 마스터/첨부 링크</span>
-        </div>
-        <div id="dPlanBox"></div>
-
-        <div style="margin-top:14px;">
-          <div class="section-title">
-            <h2>안내</h2>
-            <span class="sub">출력</span>
-          </div>
-          <div class="small">
-            - "견적서 출력(풀)" 버튼을 누르면 A4 고급 보고서 형태로 출력됩니다.<br/>
-            - 상가: 해당층 평면도 자동 연결 / 오피스텔: 배치도 자동 연결
-          </div>
-        </div>
-      </section>
-    </div>
-
-  </div>
-
-  <!-- 견적서 출력 전용 영역(프린트에서만 보임) -->
-  <div id="estimatePrint"></div>
-  <!-- 매물설명 출력 전용 영역 -->
-  <div id="infoPrint"></div>
-
-  <script src="assets/js/storage.js"></script>
-  <script src="assets/js/data.js"></script>
-  <script src="assets/js/estimate.js"></script>
-  <script src="assets/js/detail.js"></script>
-</body>
-</html>
+})();

@@ -13,8 +13,6 @@
   const btnBack = $("btnBack");
   const btnEstimate = $("btnEstimate");
   const btnEdit = $("btnEdit");
-  const btnInfoPrint = $("btnInfoPrint");
-
   const elInfoPrint = document.getElementById("infoPrint");
 
   const qs = new URLSearchParams(location.search);
@@ -59,10 +57,11 @@
 
   renderDetail(listing);
 
-  // 리스트에서 단건 출력 요청
+  // 리스트에서 단건 출력 요청 - 고객용/자료용 선택
   if (printMode === "info") {
-    renderInfoPrint(listing);
-    setTimeout(() => window.print(), 50);
+    const isData = confirm("출력 방식을 선택하세요.\n\n확인 → 자료용 (연락처 포함)\n취소 → 고객용 (연락처 숨김)");
+    renderInfoPrint(listing, isData);
+    setTimeout(() => window.print(), 80);
   }
 
   function renderDetail(x) {

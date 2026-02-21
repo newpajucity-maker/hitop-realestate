@@ -67,19 +67,21 @@ td.center, th.center { text-align: center; }
 td.right, th.right { text-align: right; }
 .table-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
 .table-actions .right { display: flex; gap: 6px; flex-wrap: wrap; }
-/* 체크박스 가독성 개선 */
+/* ✅ 체크박스 최종 정리본 */
 .row-check,
 #checkAll {
   width: 18px;
   height: 18px;
-  accent-color: #C6A75E; /* 골드톤 */
   cursor: pointer;
-}
-.row-check,
-#checkAll {
-  width: 18px;
-  height: 18px;
+
   accent-color: #C6A75E;
-  cursor: pointer;
-  border: 1px solid rgba(212,175,55,0.6);
+
+  /* 전역 input 커스텀 무력화 + 기본 체크박스 강제 */
+  -webkit-appearance: auto !important;
+  appearance: auto !important;
+
+  background: transparent !important;
+  border-radius: 4px !important;
+  opacity: 1 !important;
+  margin: 0 !important;
 }

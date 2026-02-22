@@ -280,10 +280,18 @@
       </div>`;
   }
 
-  function guessFloorGroup(floor) {
-    const f = String(floor || "").toUpperCase();
-    if (f === "1F" || f.includes("1F")) return "1층";
-    if (f === "2F" || f.includes("2F")) return "2층";
-    return "상층부";
+   function readEstimateFormOpts() {
+    const num = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return undefined;
+      const n = Number(el.value);
+      return Number.isFinite(n) ? n : undefined;
+    };
+    return {
+      ltvPct:        num("ef_ltvPct"),
+      interestRate:  num("ef_intRate"),
+      acqTaxRate:    num("ef_acqTaxRate"),
+      regRate:       num("ef_regRate"),
+    };
   }
 })();

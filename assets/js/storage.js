@@ -12,6 +12,8 @@
     if (ver >= SCHEMA_VERSION) return;
 
     // v1 → v2: 기존 listings의 floor → floorGroup 변환
+    // [N-8 수정] schemaVersion 업데이트를 try 블록 안으로 이동
+    // → 마이그레이션 실패 시 버전이 올라가지 않아 다음 로드에서 재시도 가능
     try {
       const raw = localStorage.getItem("listings");
       if (raw) {
@@ -43,12 +45,13 @@
           localStorage.setItem("listings", JSON.stringify(migrated));
         }
       }
+      // ✅ 마이그레이션 성공 시에만 버전 업데이트 (try 블록 안)
+      localStorage.setItem("schemaVersion", String(SCHEMA_VERSION));
+      console.info("[Storage] 마이그레이션 완료 v" + ver + " → v" + SCHEMA_VERSION);
     } catch(e) {
-      console.warn("[migrate] listings 마이그레이션 오류:", e);
+      // 실패 시 schemaVersion 변경 없음 → 다음 페이지 로드에서 재시도됨
+      console.warn("[migrate] listings 마이그레이션 오류 (버전 미변경, 다음 로드에서 재시도):", e);
     }
-
-    localStorage.setItem("schemaVersion", String(SCHEMA_VERSION));
-    console.info("[Storage] 마이그레이션 완료 v" + ver + " → v" + SCHEMA_VERSION);
   };
 
   // ── Core Utils ───────────────────────────────────────────────────────
@@ -65,7 +68,20 @@
   };
 
   Storage.setArray = function (key, arr) {
-    localStorage.setItem(key, JSON.stringify(arr));
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) {
+      if (e.name === "QuotaExceededError" || e.code === 22) {
+        alert(
+          "저장 공간이 부족합니다.\n" +
+          "JSON 백업 후 완료된 매물 등 일부 데이터를 정리해주세요.\n" +
+          "(시도: " + key + " / " + arr.length + "건)"
+        );
+      } else {
+        console.error("[Storage] setArray 오류:", e);
+        throw e;
+      }
+    }
   };
 
   Storage.downloadJson = function (filename, obj) {

@@ -27,7 +27,9 @@
   if (!listing) { alert("매물을 찾을 수 없습니다."); location.href = "index.html"; return; }
 
   btnBack.addEventListener("click", () => history.back());
-  btnEstimate.addEventListener("click", () => { window.EstimateUtil.renderAndPrint(listing); });
+  btnEstimate.addEventListener("click", () => {
+  const opts = readEstimateFormOpts();
+  window.EstimateUtil.renderAndPrint(listing, opts); });
   btnEdit.addEventListener("click", () => { location.href = `register.html?id=${listing.id}`; });
 
   // 삭제 버튼
@@ -96,6 +98,7 @@
     } else if (x.memo) { addInfo("메모", x.memo); }
 
     await renderPlan(x);
+    window.EstimateUtil.renderInputForm("estimateFormWrap", listing);
   }
 
   async function renderPlan(x) {

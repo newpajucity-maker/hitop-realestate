@@ -6,6 +6,15 @@
   // 기존 고정층 입력 방식 → 필요한 층만 추가하는 방식으로 변경
   const FLOOR_PRESETS = ["B3","B2","B1","1F","2F","3F","4F","5F","6F","7F","8F","9F","10F","11F","12F","13F","14F","15F"];
 
+  // [N-3 수정] URL 안전성 검증 함수 추가
+  function safeUrl(u) {
+    if (!u || typeof u !== "string") return "";
+    try {
+      const url = new URL(u.trim());
+      return (url.protocol === "https:" || url.protocol === "http:") ? u.trim() : "";
+    } catch { return ""; }
+  }
+
   let currentType = "shop";
   let currentFilter = "all";
   let editId = null;
@@ -132,7 +141,11 @@
       const fpList = document.getElementById("fpList");
       const floorplansArr = collectFloorplans(fpList);
       const floorplans = {};
-      floorplansArr.forEach(e => { if (e.floor && e.url) floorplans[e.floor] = e.url; });
+      // [N-3 수정] safeUrl로 검증 후 저장
+      floorplansArr.forEach(e => {
+        const cleanUrl = safeUrl(e.url);
+        if (e.floor && cleanUrl) floorplans[e.floor] = cleanUrl;
+      });
       extra = {
         shop_summary: $("shop_summary").value.trim(),
         shop_office: $("shop_office").value.trim(),
@@ -287,9 +300,14 @@ function renderList() {
 
     const left = document.createElement("div");
     left.className = "meta";
-    left.innerHTML =
-      `<div class="name">${item.name}</div>
-       <div class="sub">${item.address || "(주소 미입력)"}</div>`;
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "name";
+    nameDiv.textContent = item.name;
+    const subDiv = document.createElement("div");
+    subDiv.className = "sub";
+    subDiv.textContent = item.address || "(주소 미입력)";
+    left.appendChild(nameDiv);
+    left.appendChild(subDiv);
 
     const right = document.createElement("div");
     right.className = "item-actions";

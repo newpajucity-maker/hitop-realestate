@@ -84,10 +84,12 @@
       render();
     });
 
-    // 전체 리스트 출력
-    elBtnPrint.addEventListener("click", () => {
-      printWithRows(getFilteredRows());
-    });
+    // 전체 리스트 출력 ← [N-2 수정] null 체크 추가
+    if (elBtnPrint) {
+      elBtnPrint.addEventListener("click", () => {
+        printWithRows(getFilteredRows());
+      });
+    }
 
     // 선택 출력
     if (elBtnPrintSelected) {
@@ -116,6 +118,50 @@
     if (elBtnBuildings) elBtnBuildings.addEventListener("click", () => (location.href = "buildings.html"));
     if (elBtnHome) elBtnHome.addEventListener("click", () => (location.href = "home.html"));
     if (elBtnCustomers) elBtnCustomers.addEventListener("click", () => (location.href = "customers.html"));
+
+    // 백업 ← [N-1 수정] customers, scheduleEvents 추가
+    const elBackup = document.getElementById("btnBackup");
+    if (elBackup) {
+      elBackup.addEventListener("click", () => {
+        const data = {
+          listings:       DataUtil.getListings(),
+          buildings:      DataUtil.getBuildings(),
+          customers:      StorageUtil.getArray("customers"),
+          scheduleEvents: StorageUtil.getArray("scheduleEvents"),
+          exportedAt:     new Date().toISOString(),
+        };
+        StorageUtil.downloadJson("hitop-backup-" + new Date().toISOString().slice(0, 10) + ".json", data);
+      });
+    }
+
+    // 복원 ← [N-1 수정] customers, scheduleEvents 복원 추가
+    const elRestore = document.getElementById("btnRestore");
+    if (elRestore) {
+      elRestore.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (!Array.isArray(data.listings)) throw new Error("listings 배열이 없습니다.");
+            const custCount  = Array.isArray(data.customers)      ? data.customers.length      : 0;
+            const schedCount = Array.isArray(data.scheduleEvents) ? data.scheduleEvents.length : 0;
+            if (!confirm(`매물 ${data.listings.length}건, 건물 ${(data.buildings || []).length}건, 고객 ${custCount}건, 일정 ${schedCount}건을 복원합니다.\n기존 데이터가 덮어쓰입니다. 계속하시겠습니까?`)) return;
+            DataUtil.setListings(data.listings);
+            if (Array.isArray(data.buildings))      StorageUtil.setArray("buildings",      data.buildings);
+            if (Array.isArray(data.customers))      StorageUtil.setArray("customers",      data.customers);
+            if (Array.isArray(data.scheduleEvents)) StorageUtil.setArray("scheduleEvents", data.scheduleEvents);
+            alert("복원 완료! 페이지를 새로고침합니다.");
+            location.reload();
+          } catch (err) {
+            alert("복원 실패: " + err.message);
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      });
+    }
 
     // 체크박스 클릭은 행 클릭(상세 이동) 막기 + 선택 상태 유지
     document.addEventListener(
@@ -434,6 +480,7 @@
     checkAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
   }
 
+  // [N-4 수정] printWithRows 끝에 bindCheckAll(original) 추가
   function printWithRows(rows) {
     const original = getFilteredRows();
     renderColumns(state.type);
@@ -445,6 +492,7 @@
     renderColumns(state.type);
     renderRows(state.type, original);
     updatePrintHeader();
+    bindCheckAll(original); // ← 헤더 전체선택 체크박스 상태 동기화
   }
 
   function guessFloorGroup(floor) {
@@ -510,7 +558,7 @@
     const p = Number(priceMan);
     const a = Number(areaPy);
     if (!isFinite(p) || !isFinite(a) || a <= 0) return "-";
-    return (p / a).toFixed(0).toLocaleString("ko-KR") + "만원/평";
+    return Math.round(p / a).toLocaleString("ko-KR") + "만원/평";
   }
 
   function esc(s) {

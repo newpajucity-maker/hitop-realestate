@@ -1,76 +1,75 @@
 // assets/js/home.js
-(function(){
+(async function(){
   "use strict";
 
   const $ = (id) => document.getElementById(id);
   const KEY = "scheduleEvents";
 
-  const elDate = $("evDate");
+  const elDate  = $("evDate");
   const elTitle = $("evTitle");
-  const elMemo = $("evMemo");
-  const elList = $("evList");
+  const elMemo  = $("evMemo");
+  const elList  = $("evList");
   const elEmpty = $("evEmpty");
   const elToast = $("toast");
 
-  $("goList").onclick = () => location.href = "index.html";
-  $("goRegister").onclick = () => location.href = "register.html";
+  $("goList").onclick      = () => location.href = "index.html";
+  $("goRegister").onclick  = () => location.href = "register.html";
   $("goBuildings").onclick = () => location.href = "buildings.html";
   $("goCustomers").onclick = () => location.href = "customers.html";
 
-  $("btnAdd").onclick = add;
+  $("btnAdd").onclick   = add;
   $("btnClear").onclick = clearAll;
 
-  // 기본 날짜: 오늘
   elDate.value = today();
 
-  render();
+  await render();
 
   function toast(msg){
     elToast.textContent = msg;
     elToast.classList.add("show");
     clearTimeout(window.__t);
-    window.__t = setTimeout(()=>elToast.classList.remove("show"), 1500);
+    window.__t = setTimeout(() => elToast.classList.remove("show"), 1500);
   }
 
-  function getArr(){ return StorageUtil.getArray(KEY); }
-  function setArr(a){ StorageUtil.setArray(KEY, a); }
+  async function getArr(){ return await StorageUtil.getArray(KEY); }
+  async function setArr(a){ await StorageUtil.setArray(KEY, a); }
 
-  function add(){
+  async function add(){
     const d = elDate.value || today();
     const t = (elTitle.value || "").trim();
-    const m = (elMemo.value || "").trim();
+    const m = (elMemo.value  || "").trim();
     if (!t) return toast("제목을 입력해주세요.");
 
-    const arr = getArr();
+    const arr = await getArr();
     arr.unshift({ id: StorageUtil.uid("e"), date:d, title:t, memo:m, createdAt: new Date().toISOString() });
-    setArr(arr);
+    await setArr(arr);
 
     elTitle.value = "";
-    elMemo.value = "";
+    elMemo.value  = "";
     toast("저장 완료");
-    render();
+    await render();
   }
 
-  function clearAll(){
+  async function clearAll(){
     if (!confirm("일정을 전부 삭제할까요?")) return;
-    setArr([]);
+    await setArr([]);
     toast("삭제 완료");
-    render();
+    await render();
   }
 
-  function del(id){
-    const arr = getArr().filter(x=>x.id!==id);
-    setArr(arr);
+  async function del(id){
+    const arr = (await getArr()).filter(x => x.id !== id);
+    await setArr(arr);
     toast("삭제 완료");
-    render();
+    await render();
   }
 
-  function render(){
-    const arr = getArr().slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  async function render(){
+    const arr = (await getArr()).slice().sort((a,b) => String(a.date).localeCompare(String(b.date)));
     elList.innerHTML = "";
     elEmpty.style.display = arr.length ? "none" : "block";
 
-    arr.forEach(ev=>{
+    arr.forEach(ev => {
       const div = document.createElement("div");
       div.className = "ev-item";
       div.innerHTML = `
@@ -92,10 +91,7 @@
 
   function today(){
     const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const da = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${da}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   }
 
   function esc(s){

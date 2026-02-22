@@ -1,553 +1,703 @@
-// assets/js/list.js
+// assets/js/register.js
 (function () {
   "use strict";
 
   const $ = (id) => document.getElementById(id);
 
-  const elType             = $("fType");
-  const elBuilding         = $("fBuilding");
-  const elDeal             = $("fDeal");
-  const elStatus           = $("fStatus");
-  const elListedOnly       = $("fListedOnly");
-  const elSearch           = $("fSearch");
-  const elFloorGroup       = $("fFloorGroup");
-  const elTableHead        = $("tableHead");
-  const elTableBody        = $("tableBody");
-  const elCount            = $("resultCount");
-  const elBtnPrint         = $("btnPrint");
-  const elBtnPrintSelected = $("btnPrintSelected");
-  const elBtnPrintOne      = $("btnPrintOne");
-  const elBtnNew           = $("btnNew");
-  const elBtnBuildings     = $("btnBuildings");
-  const elBtnHome          = $("btnHome");
-  const elBtnCustomers     = $("btnCustomers");
-  const elPrintTitle       = $("printTitle");
-  const elPrintSub         = $("printSub");
+  const elTypeSelect    = $("typeSelect");
+  const elBuildingSelect= $("buildingSelect");
+  const elBuildingInfo  = $("buildingInfo");
+  const elBuildingWrap  = $("buildingFieldWrap");
+  const elDynamic       = $("dynamicFields");
+  const elDealType      = $("dealType");
+  const elStatus        = $("status");
+  const elIsListed      = $("isListed");
+  const elSave          = $("btnSave");
+  const elMemoList      = $("memoList");
+  const elAddMemo       = $("btnAddMemo");
 
-  // ── 상태 ────────────────────────────────────────────────────────
-  const state = {
-    type: "shop", buildingId: "", dealType: "", status: "",
-    floorGroup: "", listedOnly: true, q: "",
-    selected: new Set(),
-  };
+  let currentType = elTypeSelect.value || "shop";
 
-  // ── 로딩 제어 ────────────────────────────────────────────────────
-  // isLoading: render가 실행 중인지 여부 (중복 실행 방지)
-  // pendingRender: 로딩 중에 render 요청이 또 들어오면 true → 완료 후 1회 재실행
-  let isLoading     = false;
-  let pendingRender = false;
+  const BUILDING_TYPES = new Set(["shop", "officetel", "apartment", "bizcenter"]);
+  const SHOP_FLOORS  = DataUtil.SHOP_FLOORS;
+  const DIRECTIONS   = DataUtil.DIRECTIONS;
+  const FLOOR_GROUPS = ["1층", "2층", "상층부"];
 
-  // ── 검색 디바운스 타이머 ─────────────────────────────────────────
-  let searchTimer = null;
+  const qs     = new URLSearchParams(location.search);
+  const editId = qs.get("id");
+  let editingListing = null;
 
-  // ── 로딩 오버레이 헬퍼 ──────────────────────────────────────────
-  // index.html에 <div id="loadingOverlay"> 요소가 있으면 표시/숨김
-  // 없어도 에러 없이 동작 (선택적 UI)
-  function showLoading() {
-    elTableBody.style.opacity = "0.35";
-    elTableBody.style.pointerEvents = "none";
-    elCount.textContent = "로딩 중…";
-    const ov = $("loadingOverlay");
-    if (ov) ov.style.display = "flex";
-  }
-
-  function hideLoading() {
-    elTableBody.style.opacity = "";
-    elTableBody.style.pointerEvents = "";
-    const ov = $("loadingOverlay");
-    if (ov) ov.style.display = "none";
-  }
-
-  // ── 필터 버튼 잠금 / 해제 (로딩 중 중복 조작 방지) ──────────────
-  function lockFilters() {
-    [elType, elBuilding, elDeal, elStatus, elListedOnly, elFloorGroup]
-      .forEach(el => { if (el) el.disabled = true; });
-  }
-  function unlockFilters() {
-    [elType, elBuilding, elDeal, elStatus, elListedOnly, elFloorGroup]
-      .forEach(el => { if (el) el.disabled = false; });
-  }
-
-  // ── 핵심: 안전한 render 래퍼 ────────────────────────────────────
-  // 동시에 여러 render()가 실행되지 않도록 직렬화
-  async function safeRender() {
-    if (isLoading) {
-      // 이미 로딩 중이면 "한 번 더 실행해달라"는 플래그만 세움
-      pendingRender = true;
-      return;
-    }
-    isLoading = true;
-    lockFilters();
-    showLoading();
-    try {
-      await render();
-    } finally {
-      isLoading = false;
-      hideLoading();
-      unlockFilters();
-      // 로딩 중 추가 요청이 있었으면 1회만 재실행
-      if (pendingRender) {
-        pendingRender = false;
-        await safeRender();
-      }
-    }
-  }
-
-  // ── 초기화 ──────────────────────────────────────────────────────
   init();
 
   async function init() {
-    elType.value = state.type;
-    elListedOnly.checked = state.listedOnly;
-
-    // 유형 변경: 건물 옵션도 함께 갱신
-    elType.addEventListener("change", async () => {
-      state.type = elType.value;
-      state.buildingId = "";
-      state.selected.clear();
-      await renderBuildingOptions();
-      await safeRender();
+    elTypeSelect.addEventListener("change", async () => {
+      currentType = elTypeSelect.value;
+      await syncBuildingUI();
+      renderDynamicFields(currentType);
     });
 
-    elBuilding.addEventListener("change",   async () => { state.buildingId = elBuilding.value; await safeRender(); });
-    elDeal.addEventListener("change",       async () => { state.dealType   = elDeal.value;     await safeRender(); });
-    elStatus.addEventListener("change",     async () => { state.status     = elStatus.value;   await safeRender(); });
-    elListedOnly.addEventListener("change", async () => { state.listedOnly = elListedOnly.checked; await safeRender(); });
+    elBuildingSelect.addEventListener("change", async () => await renderBuildingInfo());
 
-    if (elFloorGroup) {
-      elFloorGroup.addEventListener("change", async () => { state.floorGroup = elFloorGroup.value; await safeRender(); });
-    }
-
-    // 검색: 300ms 디바운스 (타이핑마다 서버 요청 방지)
-    elSearch.addEventListener("input", () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(async () => {
-        state.q = (elSearch.value || "").trim().toLowerCase();
-        await safeRender();
-      }, 300);
+    elStatus.addEventListener("change", () => {
+      if (elStatus.value === "완료") elIsListed.checked = false;
     });
 
-    // ── 출력 버튼 [N-2 null 체크 유지] ──────────────────────────
-    if (elBtnPrint) {
-      elBtnPrint.addEventListener("click", async () => {
-        await printWithRows(await getFilteredRows());
-      });
-    }
-    if (elBtnPrintSelected) {
-      elBtnPrintSelected.addEventListener("click", async () => {
-        const sel = Array.from(state.selected);
-        if (!sel.length) return alert("선택된 매물이 없습니다.");
-        const all  = await getFilteredRows();
-        const rows = all.filter(x => state.selected.has(x.id));
-        if (!rows.length) return alert("현재 조건에서 선택된 매물이 없습니다.");
-        await printWithRows(rows);
-      });
-    }
-    if (elBtnPrintOne) {
-      elBtnPrintOne.addEventListener("click", () => {
-        const sel = Array.from(state.selected);
-        if (sel.length !== 1) return alert("단건 출력은 1개만 선택해주세요.");
-        location.href = `detail.html?id=${sel[0]}`;
-      });
+    elSave.addEventListener("click", saveListing);
+
+    if (elAddMemo) {
+      elAddMemo.addEventListener("click", () => addMemoRow("", ""));
+      addMemoRow(todayStr(), "");
     }
 
-    if (elBtnNew)       elBtnNew.addEventListener("click",       () => (location.href = "register.html"));
-    if (elBtnBuildings) elBtnBuildings.addEventListener("click", () => (location.href = "buildings.html"));
-    if (elBtnHome)      elBtnHome.addEventListener("click",      () => (location.href = "home.html"));
-    if (elBtnCustomers) elBtnCustomers.addEventListener("click", () => (location.href = "customers.html"));
+    await syncBuildingUI();
+    renderDynamicFields(currentType);
 
-    // ── [N-1] 백업: 4개 테이블 전체 포함 ────────────────────────
-    const elBackup = document.getElementById("btnBackup");
-    if (elBackup) {
-      elBackup.addEventListener("click", async () => {
-        elBackup.disabled = true;
-        elBackup.textContent = "백업 중…";
-        try {
-          const data = {
-            listings:       await DataUtil.getListings(),
-            buildings:      await DataUtil.getBuildings(),
-            customers:      await StorageUtil.getArray("customers"),
-            scheduleEvents: await StorageUtil.getArray("scheduleEvents"),
-            exportedAt:     new Date().toISOString(),
-          };
-          StorageUtil.downloadJson(
-            "hitop-backup-" + new Date().toISOString().slice(0, 10) + ".json",
-            data
-          );
-        } finally {
-          elBackup.disabled = false;
-          elBackup.textContent = "백업";
-        }
-      });
+    // 수정 모드
+    if (editId) {
+      const allListings = await DataUtil.getListings();
+      editingListing = allListings.find(x => x.id === editId) || null;
+      if (editingListing) loadListingToForm(editingListing);
+      else alert("수정할 매물을 찾을 수 없습니다.");
     }
-
-    // ── [N-1] 복원: 4개 테이블 전체 복원 ────────────────────────
-    const elRestore = document.getElementById("btnRestore");
-    if (elRestore) {
-      elRestore.addEventListener("change", async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          try {
-            const data = JSON.parse(ev.target.result);
-            if (!Array.isArray(data.listings)) throw new Error("listings 배열이 없습니다.");
-            const custCount  = Array.isArray(data.customers)      ? data.customers.length      : 0;
-            const schedCount = Array.isArray(data.scheduleEvents) ? data.scheduleEvents.length : 0;
-            if (!confirm(
-              `매물 ${data.listings.length}건, 건물 ${(data.buildings||[]).length}건, ` +
-              `고객 ${custCount}건, 일정 ${schedCount}건을 복원합니다.\n` +
-              `기존 데이터가 덮어쓰입니다. 계속하시겠습니까?`
-            )) return;
-
-            showLoading();
-            await DataUtil.setListings(data.listings);
-            if (Array.isArray(data.buildings))
-              await StorageUtil.setArray("buildings",      data.buildings);
-            if (Array.isArray(data.customers))
-              await StorageUtil.setArray("customers",      data.customers);
-            if (Array.isArray(data.scheduleEvents))
-              await StorageUtil.setArray("scheduleEvents", data.scheduleEvents);
-            hideLoading();
-
-            alert("복원 완료! 페이지를 새로고침합니다.");
-            location.reload();
-          } catch (err) {
-            hideLoading();
-            alert("복원 실패: " + err.message);
-          }
-        };
-        reader.readAsText(file);
-        e.target.value = "";
-      });
-    }
-
-    // ── 체크박스 개별 클릭 이벤트 (이벤트 위임) ─────────────────
-    document.addEventListener("click", (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      if (t.classList.contains("row-check")) {
-        e.stopPropagation();
-        const id = t.getAttribute("data-id");
-        if (!id) return;
-        if (t.checked) state.selected.add(id); else state.selected.delete(id);
-        if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
-        syncHeaderCheckAll();
-      }
-      if (t.id === "checkAll") e.stopPropagation();
-    }, true);
-
-    // ── 최초 렌더 ────────────────────────────────────────────────
-    await renderBuildingOptions();
-    await safeRender();
   }
 
-  // ── 건물 필터 옵션 갱신 ─────────────────────────────────────────
-  async function renderBuildingOptions() {
-    const buildings = (await DataUtil.getBuildings()).filter(b => b.type === state.type);
-    elBuilding.innerHTML = `<option value="">건물 전체</option>`;
+  async function syncBuildingUI() {
+    const needsBuilding = BUILDING_TYPES.has(currentType);
+    if (elBuildingWrap) elBuildingWrap.style.display = needsBuilding ? "block" : "none";
+    elBuildingSelect.disabled = !needsBuilding;
+
+    if (!needsBuilding) {
+      elBuildingSelect.innerHTML = `<option value="">(건물 선택 없음)</option>`;
+      elBuildingInfo.innerHTML = "";
+      return;
+    }
+
+    const buildings = (await DataUtil.getBuildings()).filter(b => b.type === currentType);
+    elBuildingSelect.innerHTML = `<option value="">건물 선택</option>`;
     buildings.forEach(b => {
       const opt = document.createElement("option");
       opt.value = b.id; opt.textContent = b.name;
-      elBuilding.appendChild(opt);
+      elBuildingSelect.appendChild(opt);
     });
-    elBuilding.value = state.buildingId || "";
+
+    await renderBuildingInfo();
   }
 
-  // ── 핵심 렌더 함수 ──────────────────────────────────────────────
-  async function render() {
-    const filtered = await getFilteredRows();
-    renderColumns(state.type);
-    renderRows(state.type, filtered);
-    elCount.textContent = `${filtered.length}건`;
-    await updatePrintHeader();
-    if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
-    // [N-4] render 후 반드시 bindCheckAll 재호출
-    bindCheckAll(filtered);
+  async function renderBuildingInfo() {
+    const id = elBuildingSelect.value;
+    if (!id) { elBuildingInfo.innerHTML = ""; return; }
+    const b = await DataUtil.findBuildingById(id);
+    if (!b) return;
+    const scaleTxt = b.scale || makeScaleText(b.scaleB, b.scaleG);
+    elBuildingInfo.innerHTML = `
+      <div class="readonly-box">
+        <b>${esc(b.name)}</b><br/>
+        ${esc(b.address || "")}<br/>
+        사용승인: ${esc(b.approved || "-")}<br/>
+        규모: ${esc(scaleTxt || "-")}<br/>
+        주차: ${esc(b.parking || "-")}
+      </div>`;
   }
 
-  // ── 데이터 조회 + 필터 ──────────────────────────────────────────
-  async function getFilteredRows() {
-    const listings = await DataUtil.getListings();
-    return listings.filter(matches);
+  function renderDynamicFields(type) {
+    elDynamic.innerHTML = "";
+    if (type === "shop")       return renderShop();
+    if (type === "officetel")  return renderOfficetel();
+    if (type === "apartment")  return renderApartment();
+    if (type === "bizcenter")  return renderBizcenter();
+    if (type === "factory")    return renderFactory();
+    if (type.startsWith("land")) return renderLand(type);
+    elDynamic.innerHTML = `<div class="small">해당 유형 폼이 준비되지 않았습니다.</div>`;
   }
 
-  function matches(x) {
-    if (x.type !== state.type) return false;
-    if (state.listedOnly && !x.isListed) return false;
-    if (state.status     && x.status    !== state.status)    return false;
-    if (state.dealType   && x.dealType  !== state.dealType)  return false;
-    if (state.buildingId && x.buildingId !== state.buildingId) return false;
-    if (state.floorGroup) {
-      const fg = x.floorGroup || guessFloorGroup(x.floor);
-      if (fg !== state.floorGroup) return false;
+  function renderShop() {
+    elDynamic.innerHTML = `
+      <div class="row">
+        <div class="field"><label>호실</label><input id="unit" placeholder="예: 201호"/></div>
+        <div class="field"><label>층수(필터용)</label><select id="floorGroup"></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>전용면적 (㎡)</label><input id="exM2" type="number" step="0.01"/></div>
+        <div class="field"><label>전용면적 (평)</label><input id="exPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>분양면적 (㎡)</label><input id="suM2" type="number" step="0.01"/></div>
+        <div class="field"><label>분양면적 (평)</label><input id="suPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>향</label><select id="direction"></select></div>
+        <div class="field"><label>현업종</label><input id="currentBiz" placeholder="예: 필라테스"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>보증금 (만원)</label><input id="deposit" type="number"/></div>
+        <div class="field"><label>월세 (만원)</label><input id="rent" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+        <div class="field"><label>관리비 (만원)</label><input id="maintenance" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>소유주 연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>임차인</label><input id="tenantName"/></div>
+        <div class="field"><label>임차인 연락처</label><input id="tenantPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="field"><label>계약만료일</label><input id="leaseEnd" type="date"/></div>
+      <div class="row">
+        <div class="field"><label>부가세(VAT)</label>
+          <select id="vatMode"><option>별도</option><option>포함</option><option>해당없음</option></select>
+        </div>
+        <div class="field"><label>VAT 세율(%)</label><input id="vatRate" type="number" value="10"/></div>
+      </div>`;
+    const fg = $("floorGroup");
+    FLOOR_GROUPS.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; fg.appendChild(o); });
+    const dirSel = $("direction");
+    DIRECTIONS.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; dirSel.appendChild(o); });
+    bindM2ToPy("exM2", "exPy"); bindM2ToPy("suM2", "suPy");
+  }
+
+  function renderOfficetel() {
+    elDynamic.innerHTML = `
+      <div class="row">
+        <div class="field"><label>동(선택)</label><input id="dong" placeholder="예: A동"/></div>
+        <div class="field"><label>호수</label><input id="ho" placeholder="예: 1502호"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>타입</label><input id="otType" placeholder="예: A타입 / 84A"/></div>
+        <div class="field"><label>방수</label><input id="rooms" type="number" min="0" step="1" placeholder="예: 1"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>층수(필터용)</label><select id="floorGroup"></select></div>
+        <div class="field"><label>관리비 (만원)</label><input id="maintenance" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>전용면적 (㎡)</label><input id="exM2" type="number" step="0.01"/></div>
+        <div class="field"><label>전용면적 (평)</label><input id="exPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>분양면적 (㎡)</label><input id="suM2" type="number" step="0.01"/></div>
+        <div class="field"><label>분양면적 (평)</label><input id="suPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>향</label><select id="direction"></select></div>
+        <div class="field"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+        <div class="field"><label>전세가 (만원)</label><input id="jeonsePrice" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>보증금 (만원)</label><input id="deposit" type="number"/></div>
+        <div class="field"><label>월세 (만원)</label><input id="rent" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>소유주 연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>임차인</label><input id="tenantName"/></div>
+        <div class="field"><label>임차인 연락처</label><input id="tenantPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>부가세(VAT)</label>
+          <select id="vatMode"><option>해당없음</option><option>별도</option><option>포함</option></select>
+        </div>
+        <div class="field"><label>VAT 세율(%)</label><input id="vatRate" type="number" value="10"/></div>
+      </div>`;
+    const dirSel = $("direction");
+    DIRECTIONS.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; dirSel.appendChild(o); });
+    const fg = $("floorGroup");
+    FLOOR_GROUPS.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; fg.appendChild(o); });
+    bindM2ToPy("exM2", "exPy"); bindM2ToPy("suM2", "suPy");
+  }
+
+  function renderApartment() {
+    elDynamic.innerHTML = `
+      <div class="row">
+        <div class="field"><label>동</label><input id="dong" placeholder="예: 105동"/></div>
+        <div class="field"><label>호수</label><input id="ho" placeholder="예: 902호"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>층수(필터용)</label><select id="floorGroup"></select></div>
+        <div class="field"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>전용면적 (㎡)</label><input id="exM2" type="number" step="0.01"/></div>
+        <div class="field"><label>전용면적 (평)</label><input id="exPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>분양면적 (㎡)</label><input id="suM2" type="number" step="0.01"/></div>
+        <div class="field"><label>분양면적 (평)</label><input id="suPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>타입</label><input id="aptType" placeholder="예: 84A"/></div>
+        <div class="field"><label>향</label><select id="direction"></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+        <div class="field"><label>전세가 (만원)</label><input id="jeonsePrice" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>보증금 (만원)</label><input id="deposit" type="number"/></div>
+        <div class="field"><label>월세 (만원)</label><input id="rent" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>소유주 연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>임차인</label><input id="tenantName"/></div>
+        <div class="field"><label>임차인 연락처</label><input id="tenantPhone" placeholder="010-0000-0000"/></div>
+      </div>`;
+    const dirSel = $("direction");
+    DIRECTIONS.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; dirSel.appendChild(o); });
+    const fg = $("floorGroup");
+    FLOOR_GROUPS.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; fg.appendChild(o); });
+    bindM2ToPy("exM2", "exPy"); bindM2ToPy("suM2", "suPy");
+  }
+
+  function renderBizcenter() {
+    elDynamic.innerHTML = `
+      <div class="row">
+        <div class="field"><label>호실</label><input id="unit" placeholder="예: A-1203"/></div>
+        <div class="field"><label>층수(필터용)</label><select id="floorGroup"></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>전용면적 (㎡)</label><input id="exM2" type="number" step="0.01"/></div>
+        <div class="field"><label>전용면적 (평)</label><input id="exPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>분양면적 (㎡)</label><input id="suM2" type="number" step="0.01"/></div>
+        <div class="field"><label>분양면적 (평)</label><input id="suPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>보증금 (만원)</label><input id="deposit" type="number"/></div>
+        <div class="field"><label>월세 (만원)</label><input id="rent" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+        <div class="field"><label>관리비 (만원)</label><input id="maintenance" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>소유주 연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>`;
+    const fg = $("floorGroup");
+    FLOOR_GROUPS.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; fg.appendChild(o); });
+    bindM2ToPy("exM2", "exPy"); bindM2ToPy("suM2", "suPy");
+  }
+
+  function renderLand(type) {
+    elDynamic.innerHTML = `
+      <div class="field"><label>소재지(주소)</label><input id="locAddress" placeholder="예: 파주시 ○○읍 ○○리"/></div>
+      ${type === "land_single" ? `
+        <div class="row">
+          <div class="field"><label>블럭주소</label><input id="blockAddress" placeholder="예: A-12블럭"/></div>
+          <div class="field"><label>종류</label><input id="houseType" placeholder="예: 전용주거/점포주택"/></div>
+        </div>` : ""}
+      ${type === "land_dev" ? `
+        <div class="field"><label>사용용도</label><input id="devUsage" placeholder="예: 상가/오피스텔/복합"/></div>` : ""}
+      <div class="row">
+        <div class="field"><label>토지면적 (㎡)</label><input id="landM2" type="number" step="0.01"/></div>
+        <div class="field"><label>토지면적 (평)</label><input id="landPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>지목</label><input id="landJimo" placeholder="예: 대/전/답"/></div>
+        <div class="field"><label>용도지역</label><input id="landUseZone" placeholder="예: 2종일반주거"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>건폐율(%)</label><input id="coverage" type="number" step="0.1"/></div>
+        <div class="field"><label>용적률(%)</label><input id="far" type="number" step="0.1"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>도로접합</label><input id="roadAccess" placeholder="예: 6m 도로"/></div>
+        <div class="field"><label>형상</label><input id="shape" placeholder="예: 사각형"/></div>
+      </div>
+      <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="field">
+        <label>자료 URL</label>
+        <div id="attachments" class="attach-list"></div>
+        <button class="btn" type="button" id="addAttach">+ 추가</button>
+      </div>`;
+    bindM2ToPy("landM2", "landPy");
+    bindAttachments();
+  }
+
+  function renderFactory() {
+    elDynamic.innerHTML = `
+      <div class="field"><label>소재지(주소)</label><input id="locAddress" placeholder="예: 파주시 ○○읍 ○○리"/></div>
+      <div class="row">
+        <div class="field"><label>단지명</label><input id="complexName" placeholder="예: 파주 ○○산단"/></div>
+        <div class="field"><label>진입로</label><input id="accessRoad" placeholder="예: 대형차 진입"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>대지면적 (㎡)</label><input id="landM2" type="number" step="0.01"/></div>
+        <div class="field"><label>대지면적 (평)</label><input id="landPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>건축면적 (㎡)</label><input id="bldM2" type="number" step="0.01"/></div>
+        <div class="field"><label>건축면적 (평)</label><input id="bldPy" readonly/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>층고(m)</label><input id="clearHeight" type="number" step="0.1"/></div>
+        <div class="field"><label>전력(kW)</label><input id="powerKw" type="number" step="1"/></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>보증금 (만원)</label><input id="deposit" type="number"/></div>
+        <div class="field"><label>월세 (만원)</label><input id="rent" type="number"/></div>
+      </div>
+      <div class="field"><label>매매가 (만원)</label><input id="salePrice" type="number"/></div>
+      <div class="row">
+        <div class="field"><label>소유주</label><input id="ownerName"/></div>
+        <div class="field"><label>연락처</label><input id="ownerPhone" placeholder="010-0000-0000"/></div>
+      </div>
+      <div class="field">
+        <label>자료 URL</label>
+        <div id="attachments" class="attach-list"></div>
+        <button class="btn" type="button" id="addAttach">+ 추가</button>
+      </div>`;
+    bindM2ToPy("landM2", "landPy"); bindM2ToPy("bldM2", "bldPy");
+    bindAttachments();
+  }
+
+  function bindM2ToPy(m2Id, pyId) {
+    const m2 = $(m2Id), py = $(pyId); if (!m2 || !py) return;
+    const sync = () => { py.value = m2.value ? DataUtil.toPy(m2.value) : ""; };
+    m2.addEventListener("input", sync); sync();
+  }
+
+  function bindAttachments() {
+    const wrap = $("attachments"), btn = $("addAttach"); if (!wrap || !btn) return;
+    addAttachRow(wrap); btn.onclick = () => addAttachRow(wrap);
+  }
+
+  function addAttachRow(wrap) {
+    const row = document.createElement("div"); row.className = "attach-item";
+    row.innerHTML = `
+      <input placeholder="라벨(예: 지적도)"/>
+      <input placeholder="URL"/>
+      <button class="btn danger" type="button">삭제</button>`;
+    row.querySelector("button").onclick = () => row.remove();
+    wrap.appendChild(row);
+  }
+
+  async function saveListing() {
+    const isEdit = !!editingListing;
+    const record = {
+      id:           isEdit ? editingListing.id : DataUtil.newListingId(),
+      type:         currentType,
+      dealType:     elDealType.value,
+      status:       elStatus.value,
+      isListed:     elIsListed.checked,
+      memoEntries:  collectMemos(),
+      memo:         memoSummary(collectMemos()),
+      createdAt:    isEdit ? (editingListing.createdAt || DataUtil.nowISO()) : DataUtil.nowISO(),
+      updatedAt:    DataUtil.nowISO(),
+    };
+
+    if (record.status === "완료") record.isListed = false;
+
+    if (BUILDING_TYPES.has(currentType)) {
+      record.buildingId   = elBuildingSelect.value || "";
+      record.buildingName = elBuildingSelect.selectedOptions[0]?.textContent || "";
+      const b = record.buildingId ? await DataUtil.findBuildingById(record.buildingId) : null;
+      record.address = b?.address || "";
+    } else {
+      record.buildingId   = "";
+      record.buildingName = "";
+      record.address = DataUtil.cleanText($("locAddress")?.value);
     }
-    if (state.q) {
-      const hay = [
-        x.title, x.address, x.buildingName, x.unit, x.ho, x.dong,
-        x.memo, x.currentBiz, x.landUseZone, x.landJimo,
-        x.ownerName, x.ownerPhone, x.tenantName, x.tenantPhone,
-      ].join(" ").toLowerCase();
-      if (!hay.includes(state.q)) return false;
-    }
-    return true;
+
+    if (currentType === "shop")       fillShop(record);
+    else if (currentType === "officetel")  fillOfficetel(record);
+    else if (currentType === "apartment")  fillApartment(record);
+    else if (currentType === "bizcenter")  fillBizcenter(record);
+    else if (currentType === "factory")    fillFactory(record);
+    else if (currentType.startsWith("land")) fillLand(record);
+
+    record.title      = makeAutoTitle(record);
+    record.descChecks = collectDescChecks();
+
+    await DataUtil.upsertListing(record);
+    alert("저장 완료");
+    location.href = "index.html";
   }
 
-  // ── 컬럼 헤더 렌더 ──────────────────────────────────────────────
-  function renderColumns(type) {
-    const cols = getColumns(type);
-    elTableHead.innerHTML = "";
-    const tr = document.createElement("tr");
-    cols.forEach(c => {
-      const th = document.createElement("th");
-      if (c.headerHtml) th.innerHTML = c.headerHtml; else th.textContent = c.label;
-      if (c.className) th.className = c.className;
-      tr.appendChild(th);
+  function fillShop(r) {
+    r.unit = DataUtil.cleanText($("unit").value);
+    r.floorGroup = $("floorGroup").value;
+    r.floor = floorKeyFromGroup(r.floorGroup);
+    r.direction = $("direction").value;
+    r.currentBiz = DataUtil.cleanText($("currentBiz").value);
+    r.areaExclusiveM2 = num($("exM2").value); r.areaExclusivePy = num($("exPy").value);
+    r.areaSupplyM2    = num($("suM2").value); r.areaSupplyPy    = num($("suPy").value);
+    r.depositManwon = num($("deposit").value); r.rentManwon = num($("rent").value);
+    r.salePriceManwon = num($("salePrice").value); r.maintenanceFeeManwon = num($("maintenance").value);
+    r.ownerName  = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone = DataUtil.cleanText($("ownerPhone").value);
+    r.tenantName = DataUtil.cleanText($("tenantName").value);
+    r.tenantPhone= DataUtil.cleanText($("tenantPhone").value);
+    r.leaseEnd   = $("leaseEnd").value || "";
+    r.vatMode    = $("vatMode").value;
+    r.vatRate    = num($("vatRate").value) || 10;
+  }
+
+  function fillOfficetel(r) {
+    r.dong = DataUtil.cleanText($("dong").value); r.ho = DataUtil.cleanText($("ho").value);
+    r.otType = DataUtil.cleanText($("otType").value); r.rooms = num($("rooms").value);
+    r.floorGroup = $("floorGroup").value; r.floor = r.floorGroup;
+    r.direction = $("direction").value;
+    r.areaExclusiveM2 = num($("exM2").value); r.areaExclusivePy = num($("exPy").value);
+    r.areaSupplyM2    = num($("suM2").value); r.areaSupplyPy    = num($("suPy").value);
+    r.maintenanceFeeManwon = num($("maintenance").value);
+    r.salePriceManwon = num($("salePrice").value); r.jeonsePriceManwon = num($("jeonsePrice").value);
+    r.depositManwon = num($("deposit").value); r.rentManwon = num($("rent").value);
+    r.ownerName  = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone = DataUtil.cleanText($("ownerPhone").value);
+    r.tenantName = DataUtil.cleanText($("tenantName").value);
+    r.tenantPhone= DataUtil.cleanText($("tenantPhone").value);
+    r.vatMode = $("vatMode").value; r.vatRate = num($("vatRate").value) || 10;
+  }
+
+  function fillApartment(r) {
+    r.dong = DataUtil.cleanText($("dong").value); r.ho = DataUtil.cleanText($("ho").value);
+    r.floorGroup = $("floorGroup").value; r.floor = r.floorGroup;
+    r.aptType = DataUtil.cleanText($("aptType").value); r.direction = $("direction").value;
+    r.areaExclusiveM2 = num($("exM2").value); r.areaExclusivePy = num($("exPy").value);
+    r.areaSupplyM2    = num($("suM2").value); r.areaSupplyPy    = num($("suPy").value);
+    r.salePriceManwon = num($("salePrice").value); r.jeonsePriceManwon = num($("jeonsePrice").value);
+    r.depositManwon = num($("deposit").value); r.rentManwon = num($("rent").value);
+    r.ownerName  = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone = DataUtil.cleanText($("ownerPhone").value);
+    r.tenantName = DataUtil.cleanText($("tenantName").value);
+    r.tenantPhone= DataUtil.cleanText($("tenantPhone").value);
+  }
+
+  function fillBizcenter(r) {
+    r.unit = DataUtil.cleanText($("unit").value);
+    r.floorGroup = $("floorGroup").value; r.floor = r.floorGroup;
+    r.areaExclusiveM2 = num($("exM2").value); r.areaExclusivePy = num($("exPy").value);
+    r.areaSupplyM2    = num($("suM2").value); r.areaSupplyPy    = num($("suPy").value);
+    r.depositManwon = num($("deposit").value); r.rentManwon = num($("rent").value);
+    r.salePriceManwon = num($("salePrice").value); r.maintenanceFeeManwon = num($("maintenance").value);
+    r.ownerName  = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone = DataUtil.cleanText($("ownerPhone").value);
+  }
+
+  function fillLand(r) {
+    r.address      = DataUtil.cleanText($("locAddress")?.value);
+    r.landAreaM2   = num($("landM2").value); r.landAreaPy = num($("landPy").value);
+    r.landJimo     = DataUtil.cleanText($("landJimo").value);
+    r.landUseZone  = DataUtil.cleanText($("landUseZone").value);
+    r.coverageRatio= num($("coverage").value); r.farRatio = num($("far").value);
+    r.roadAccess   = DataUtil.cleanText($("roadAccess").value);
+    r.shape        = DataUtil.cleanText($("shape").value);
+    r.salePriceManwon = num($("salePrice").value);
+    r.ownerName    = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone   = DataUtil.cleanText($("ownerPhone").value);
+    if (r.type === "land_single") {
+      r.blockAddress = DataUtil.cleanText($("blockAddress").value);
+      r.houseType    = DataUtil.cleanText($("houseType").value);
+    }
+    if (r.type === "land_dev") r.devUsage = DataUtil.cleanText($("devUsage").value);
+    r.attachments = collectAttachments();
+  }
+
+  function fillFactory(r) {
+    r.address      = DataUtil.cleanText($("locAddress")?.value);
+    r.complexName  = DataUtil.cleanText($("complexName").value);
+    r.accessRoad   = DataUtil.cleanText($("accessRoad").value);
+    r.landAreaM2   = num($("landM2").value); r.landAreaPy = num($("landPy").value);
+    r.buildingAreaM2 = num($("bldM2").value); r.buildingAreaPy = num($("bldPy").value);
+    r.clearHeightM = num($("clearHeight").value); r.powerKw = num($("powerKw").value);
+    r.depositManwon = num($("deposit").value); r.rentManwon = num($("rent").value);
+    r.salePriceManwon = num($("salePrice").value);
+    r.ownerName  = DataUtil.cleanText($("ownerName").value);
+    r.ownerPhone = DataUtil.cleanText($("ownerPhone").value);
+    r.attachments = collectAttachments();
+  }
+
+  function collectAttachments() {
+    const arr = [];
+    document.querySelectorAll("#attachments .attach-item").forEach(row => {
+      const label = row.children[0].value.trim();
+      const url   = row.children[1].value.trim();
+      if (url) arr.push({ label, url });
     });
-    elTableHead.appendChild(tr);
+    return arr;
   }
 
-  // ── 행 렌더 ─────────────────────────────────────────────────────
-  function renderRows(type, rows) {
-    const cols = getColumns(type);
-    elTableBody.innerHTML = "";
-    rows.forEach((x, idx) => {
-      const tr = document.createElement("tr");
-      tr.style.cursor = "pointer";
-      tr.addEventListener("click", () => (location.href = `detail.html?id=${x.id}`));
-      cols.forEach(c => {
-        const td = document.createElement("td");
-        if (c.className) td.className = c.className;
-        td.innerHTML = c.render ? c.render(x, idx) : "";
-        tr.appendChild(td);
+  function num(v) { const n = Number(String(v ?? "").trim()); return Number.isFinite(n) ? n : 0; }
+  function esc(s) { return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+  function collectDescChecks() {
+    const dc = {};
+    ["location","demand","strength","notes"].forEach(k => {
+      const cb = $("desc_"+k), ta = $("desc_"+k+"_text");
+      dc[k] = cb ? cb.checked : false;
+      dc[k+"Text"] = ta ? (ta.value || "").trim() : "";
+    });
+    return dc;
+  }
+
+  function toggleDescArea(k) {
+    const cb = $("desc_"+k), ta = $("desc_"+k+"_text");
+    if (ta) ta.style.display = (cb && cb.checked) ? "block" : "none";
+  }
+
+  function addMemoRow(date, text) {
+    if (!elMemoList) return;
+    const row = document.createElement("div"); row.className = "attach-item";
+    row.innerHTML = `
+      <input class="memo-date" type="date" value="${escAttr(date)}"/>
+      <input class="memo-text" placeholder="메모" value="${escAttr(text)}"/>
+      <button class="btn danger" type="button">삭제</button>`;
+    row.querySelector("button").onclick = () => row.remove();
+    elMemoList.appendChild(row);
+  }
+
+  function collectMemos() {
+    const arr = [];
+    if (!elMemoList) return arr;
+    elMemoList.querySelectorAll(".attach-item").forEach(row => {
+      const d = row.querySelector(".memo-date")?.value || "";
+      const t = (row.querySelector(".memo-text")?.value || "").trim();
+      if (t) arr.push({ date: d || todayStr(), text: t });
+    });
+    arr.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return arr;
+  }
+
+  function memoSummary(entries) { const e = Array.isArray(entries) ? entries[0] : null; return e?.text || ""; }
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function makeScaleText(b, g) {
+    return `${Number(b)?`지하${b}층`:"지하0층"} / ${Number(g)?`지상${g}층`:"지상0층"}`;
+  }
+
+  function makeAutoTitle(r) {
+    const parts = [];
+    if (r.buildingName) parts.push(r.buildingName);
+    if (r.unit) parts.push(r.unit); if (r.ho) parts.push(r.ho);
+    if (r.currentBiz) parts.push(r.currentBiz);
+    if (!parts.length && r.address) parts.push(r.address);
+    return parts.join(" ").trim();
+  }
+
+  function loadListingToForm(x) {
+    elTypeSelect.value = x.type; currentType = x.type;
+    syncBuildingUI(); renderDynamicFields(currentType);
+    elDealType.value = x.dealType || "매매";
+    elStatus.value   = x.status   || "거래가능";
+    elIsListed.checked = !!x.isListed;
+    if (BUILDING_TYPES.has(currentType)) { elBuildingSelect.value = x.buildingId || ""; renderBuildingInfo(); }
+    if (elMemoList) {
+      elMemoList.innerHTML = "";
+      const entries = Array.isArray(x.memoEntries) && x.memoEntries.length
+        ? x.memoEntries : (x.memo ? [{ date: todayStr(), text: x.memo }] : []);
+      if (entries.length) entries.slice().reverse().forEach(e => addMemoRow(e.date || todayStr(), e.text || ""));
+      else addMemoRow(todayStr(), "");
+    }
+    if (currentType === "shop") {
+      if ($("unit")) $("unit").value = x.unit || "";
+      if ($("floorGroup")) $("floorGroup").value = x.floorGroup || guessFloorGroup(x.floor);
+      if ($("direction")) $("direction").value = x.direction || "확인중";
+      if ($("currentBiz")) $("currentBiz").value = x.currentBiz || "";
+      setNum("exM2", x.areaExclusiveM2); setNum("suM2", x.areaSupplyM2);
+      setNum("deposit", x.depositManwon); setNum("rent", x.rentManwon);
+      setNum("salePrice", x.salePriceManwon); setNum("maintenance", x.maintenanceFeeManwon);
+      setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+      setVal("tenantName", x.tenantName); setVal("tenantPhone", x.tenantPhone);
+      setVal("leaseEnd", x.leaseEnd); setVal("vatMode", x.vatMode); setNum("vatRate", x.vatRate);
+    }
+    if (currentType === "officetel") {
+      setVal("dong", x.dong); setVal("ho", x.ho); setVal("otType", x.otType); setNum("rooms", x.rooms);
+      if ($("floorGroup")) $("floorGroup").value = x.floorGroup || guessFloorGroup(x.floor);
+      if ($("direction")) $("direction").value = x.direction || "확인중";
+      setNum("exM2", x.areaExclusiveM2); setNum("suM2", x.areaSupplyM2);
+      setNum("maintenance", x.maintenanceFeeManwon); setNum("salePrice", x.salePriceManwon);
+      setNum("jeonsePrice", x.jeonsePriceManwon); setNum("deposit", x.depositManwon); setNum("rent", x.rentManwon);
+      setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+      setVal("tenantName", x.tenantName); setVal("tenantPhone", x.tenantPhone);
+      setVal("vatMode", x.vatMode); setNum("vatRate", x.vatRate);
+    }
+    if (currentType === "apartment") {
+      setVal("dong", x.dong); setVal("ho", x.ho);
+      if ($("floorGroup")) $("floorGroup").value = x.floorGroup || guessFloorGroup(x.floor);
+      setVal("aptType", x.aptType);
+      if ($("direction")) $("direction").value = x.direction || "확인중";
+      setNum("exM2", x.areaExclusiveM2); setNum("suM2", x.areaSupplyM2);
+      setNum("salePrice", x.salePriceManwon); setNum("jeonsePrice", x.jeonsePriceManwon);
+      setNum("deposit", x.depositManwon); setNum("rent", x.rentManwon);
+      setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+      setVal("tenantName", x.tenantName); setVal("tenantPhone", x.tenantPhone);
+    }
+    if (currentType === "bizcenter") {
+      setVal("unit", x.unit);
+      if ($("floorGroup")) $("floorGroup").value = x.floorGroup || guessFloorGroup(x.floor);
+      setNum("exM2", x.areaExclusiveM2); setNum("suM2", x.areaSupplyM2);
+      setNum("deposit", x.depositManwon); setNum("rent", x.rentManwon);
+      setNum("salePrice", x.salePriceManwon); setNum("maintenance", x.maintenanceFeeManwon);
+      setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+    }
+    if (currentType.startsWith("land")) {
+      setVal("locAddress", x.address); setVal("blockAddress", x.blockAddress);
+      setVal("houseType", x.houseType); setVal("devUsage", x.devUsage);
+      setNum("landM2", x.landAreaM2); setVal("landJimo", x.landJimo); setVal("landUseZone", x.landUseZone);
+      setNum("coverage", x.coverageRatio); setNum("far", x.farRatio);
+      setVal("roadAccess", x.roadAccess); setVal("shape", x.shape);
+      setNum("salePrice", x.salePriceManwon); setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+      if (Array.isArray(x.attachments) && x.attachments.length) {
+        const wrap = $("attachments");
+        if (wrap) { wrap.innerHTML = ""; x.attachments.forEach(a => { const row = document.createElement("div"); row.className = "attach-item"; row.innerHTML = `<input placeholder="라벨(예: 지적도)" value="${escAttr(a.label||"")}"/><input placeholder="URL" value="${escAttr(a.url||"")}"/><button class="btn danger" type="button">삭제</button>`; row.querySelector("button").onclick = () => row.remove(); wrap.appendChild(row); }); }
+      }
+    }
+    if (currentType === "factory") {
+      setVal("locAddress", x.address); setVal("complexName", x.complexName); setVal("accessRoad", x.accessRoad);
+      setNum("landM2", x.landAreaM2); setNum("bldM2", x.buildingAreaM2);
+      setNum("clearHeight", x.clearHeightM); setNum("powerKw", x.powerKw);
+      setNum("deposit", x.depositManwon); setNum("rent", x.rentManwon);
+      setNum("salePrice", x.salePriceManwon); setVal("ownerName", x.ownerName); setVal("ownerPhone", x.ownerPhone);
+      if (Array.isArray(x.attachments) && x.attachments.length) {
+        const wrap = $("attachments");
+        if (wrap) { wrap.innerHTML = ""; x.attachments.forEach(a => { const row = document.createElement("div"); row.className = "attach-item"; row.innerHTML = `<input placeholder="라벨(예: 지적도)" value="${escAttr(a.label||"")}"/><input placeholder="URL" value="${escAttr(a.url||"")}"/><button class="btn danger" type="button">삭제</button>`; row.querySelector("button").onclick = () => row.remove(); wrap.appendChild(row); }); }
+      }
+    }
+    if (x.descChecks) {
+      const dc = x.descChecks;
+      ["location","demand","strength","notes"].forEach(k => {
+        const cb = $("desc_"+k), ta = $("desc_"+k+"_text");
+        if (cb) cb.checked = !!dc[k];
+        if (ta) { ta.value = dc[k+"Text"] || ""; ta.style.display = dc[k] ? "block" : "none"; }
       });
-      elTableBody.appendChild(tr);
-    });
-    if (rows.length === 0) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = cols.length; td.className = "muted";
-      td.textContent = "조건에 맞는 매물이 없습니다.";
-      tr.appendChild(td); elTableBody.appendChild(tr);
     }
+    ["exM2","suM2","landM2","bldM2"].forEach(id => $(id)?.dispatchEvent(new Event("input")));
   }
 
-  // ── 컬럼 정의 ───────────────────────────────────────────────────
-  function getColumns(type) {
-    const m2py = (m2, py) => {
-      const m2v = m2 ?? "", pyv = py ?? "";
-      if (!m2v && !pyv) return "-";
-      const mm = m2v ? `${fmtNum(m2v)}㎡` : "";
-      const pp = pyv ? `${fmtNum(pyv)}평` : "";
-      return `${mm}${mm && pp ? " " : ""}(${pp})`;
-    };
-    const priceShop = x => {
-      if (x.dealType === "임대" || x.dealType === "월세")
-        return `${fmtMan(x.depositManwon)}/${fmtMan(x.rentManwon)}`;
-      if (x.dealType === "매매" || x.dealType === "분양")
-        return fmtMan(x.salePriceManwon);
-      return "-";
-    };
-    const priceOffi = x => {
-      if (x.dealType === "전세")
-        return fmtMan(x.jeonsePriceManwon);
-      if (x.dealType === "월세" || x.dealType === "임대")
-        return `${fmtMan(x.depositManwon)}/${fmtMan(x.rentManwon)}`;
-      if (x.dealType === "매매" || x.dealType === "분양")
-        return fmtMan(x.salePriceManwon);
-      return "-";
-    };
-    const colSelect = {
-      label: "선택",
-      headerHtml: `<input type="checkbox" id="checkAll" title="전체선택" />`,
-      className: "center",
-      render: x => {
-        const checked = state.selected.has(x.id) ? "checked" : "";
-        return `<input type="checkbox" class="row-check" data-id="${escAttr(x.id)}" ${checked}/>`;
-      },
-    };
-
-    if (type === "officetel") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"건물명",                         render:x=>esc(x.buildingName||"-") },
-      { label:"동/호수",                        render:x=>esc(`${x.dong?x.dong+" ":""}${x.ho||"-"}`) },
-      { label:"층수",       className:"center", render:x=>esc(x.floorGroup||guessFloorGroup(x.floor)||"-") },
-      { label:"타입/방",    className:"center", render:x=>esc(`${x.otType||"-"}${x.rooms?" / "+x.rooms+"R":""}`) },
-      { label:"전용(㎡/평)",                   render:x=>esc(m2py(x.areaExclusiveM2,x.areaExclusivePy)) },
-      { label:"분양(㎡/평)",                   render:x=>esc(m2py(x.areaSupplyM2,x.areaSupplyPy)) },
-      { label:"향",         className:"center", render:x=>esc(x.direction||"-") },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"가격",       className:"right",  render:x=>esc(priceOffi(x)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    if (type === "apartment") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"건물명",                         render:x=>esc(x.buildingName||"-") },
-      { label:"동/호수",                        render:x=>esc(`${x.dong?x.dong+" ":""}${x.ho||"-"}`) },
-      { label:"층수",       className:"center", render:x=>esc(x.floorGroup||guessFloorGroup(x.floor)||"-") },
-      { label:"전용(㎡/평)",                   render:x=>esc(m2py(x.areaExclusiveM2,x.areaExclusivePy)) },
-      { label:"분양(㎡/평)",                   render:x=>esc(m2py(x.areaSupplyM2,x.areaSupplyPy)) },
-      { label:"타입",       className:"center", render:x=>esc(x.aptType||"-") },
-      { label:"향",         className:"center", render:x=>esc(x.direction||"-") },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"가격",       className:"right",  render:x=>esc(priceOffi(x)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    if (type === "bizcenter") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"건물명",                         render:x=>esc(x.buildingName||"-") },
-      { label:"호실",       className:"center", render:x=>esc(x.unit||"-") },
-      { label:"층수",       className:"center", render:x=>esc(x.floorGroup||guessFloorGroup(x.floor)||"-") },
-      { label:"전용(㎡/평)",                   render:x=>esc(m2py(x.areaExclusiveM2,x.areaExclusivePy)) },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"가격",       className:"right",  render:x=>esc(priceShop(x)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    if (type === "shop") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"건물명",                         render:x=>esc(x.buildingName||"-") },
-      { label:"호실",       className:"center", render:x=>esc(x.unit||"-") },
-      { label:"층수",       className:"center", render:x=>esc(x.floorGroup||guessFloorGroup(x.floor)||"-") },
-      { label:"전용(㎡/평)",                   render:x=>esc(m2py(x.areaExclusiveM2,x.areaExclusivePy)) },
-      { label:"분양(㎡/평)",                   render:x=>esc(m2py(x.areaSupplyM2,x.areaSupplyPy)) },
-      { label:"현업종",                         render:x=>esc(x.currentBiz||"-") },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"임대조건/가격", className:"right", render:x=>esc(priceShop(x)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    if (type === "land_dev" || type === "land_single" || type === "land_general") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"소재지",                         render:x=>esc(x.address||"-") },
-      { label:"면적(㎡/평)",                   render:x=>esc(m2py(x.landAreaM2,x.landAreaPy)) },
-      { label:"지목",       className:"center", render:x=>esc(x.landJimo||"-") },
-      { label:"용도지역",                       render:x=>esc(x.landUseZone||"-") },
-      { label:"매매가",     className:"right",  render:x=>esc(fmtMan(x.salePriceManwon)) },
-      { label:"평당가",     className:"right",  render:x=>esc(calcPyeongPrice(x.salePriceManwon,x.landAreaPy)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    if (type === "factory") return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"소재지",                         render:x=>esc(x.address||"-") },
-      { label:"대지(㎡/평)",                   render:x=>esc(m2py(x.landAreaM2,x.landAreaPy)) },
-      { label:"건축(㎡/평)",                   render:x=>esc(m2py(x.buildingAreaM2,x.buildingAreaPy)) },
-      { label:"층고",       className:"center", render:x=>esc(x.clearHeightM?`${x.clearHeightM}m`:"-") },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"가격",       className:"right",  render:x=>esc(priceShop(x)) },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
-
-    return [colSelect,
-      { label:"번호",       className:"center", render:(_,i)=>String(i+1) },
-      { label:"제목",                           render:x=>esc(x.title||"-") },
-      { label:"주소/건물",                      render:x=>esc(x.address||x.buildingName||"-") },
-      { label:"거래",       className:"center", render:x=>esc(x.dealType||"-") },
-      { label:"상태",       className:"center", render:x=>esc(x.status||"-") }];
+  function setVal(id, v) { const el = $(id); if (el) el.value = v ?? ""; }
+  function setNum(id, v) {
+    const el = $(id); if (!el) return;
+    if (v === null || v === undefined || v === "") { el.value = ""; return; }
+    const n = Number(v); el.value = Number.isFinite(n) ? String(n) : "";
   }
-
-  // ── [N-4] 체크박스 전체선택 바인딩 ─────────────────────────────
-  // render() 후 반드시 호출 → 체크 상태가 리렌더 후에도 유지됨
-  function bindCheckAll(filteredRows) {
-    const checkAll = document.getElementById("checkAll");
-    if (!checkAll) return;
-    const boxes = Array.from(document.querySelectorAll(".row-check"));
-    const checkedCount = boxes.filter(b => b.checked).length;
-    checkAll.checked       = boxes.length > 0 && checkedCount === boxes.length;
-    checkAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-    // 이전 핸들러 제거 후 재등록 (중복 방지)
-    checkAll.onchange = null;
-    checkAll.onchange = () => {
-      boxes.forEach(b => {
-        b.checked = checkAll.checked;
-        const id = b.getAttribute("data-id"); if (!id) return;
-        if (checkAll.checked) state.selected.add(id); else state.selected.delete(id);
-      });
-      if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
-      const newChecked = boxes.filter(b => b.checked).length;
-      checkAll.checked       = boxes.length > 0 && newChecked === boxes.length;
-      checkAll.indeterminate = newChecked > 0 && newChecked < boxes.length;
-    };
-  }
-
-  function syncHeaderCheckAll() {
-    const checkAll = document.getElementById("checkAll"); if (!checkAll) return;
-    const boxes = Array.from(document.querySelectorAll(".row-check"));
-    const checkedCount = boxes.filter(b => b.checked).length;
-    checkAll.checked       = boxes.length > 0 && checkedCount === boxes.length;
-    checkAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-  }
-
-  // ── [N-4] 인쇄 후 bindCheckAll 재호출 ──────────────────────────
-  async function printWithRows(rows) {
-    const original = await getFilteredRows();
-    renderColumns(state.type);
-    renderRows(state.type, rows);
-    await updatePrintHeader();
-    window.print();
-    // 인쇄 후 원래 목록 복원 + 체크박스 상태 복원
-    renderColumns(state.type);
-    renderRows(state.type, original);
-    await updatePrintHeader();
-    bindCheckAll(original);
-  }
-
-  // ── 유틸 ────────────────────────────────────────────────────────
   function guessFloorGroup(floor) {
     const f = String(floor || "").toUpperCase();
-    if (f === "1F" || f.includes("1F")) return "1층";
-    if (f === "2F" || f.includes("2F")) return "2층";
+    if (f === "1F" || f.includes("1")) return "1층";
+    if (f === "2F" || f.includes("2")) return "2층";
     return "상층부";
   }
+  function floorKeyFromGroup(g) { return g === "1층" ? "1F" : g === "2층" ? "2F" : "3F"; }
+  function escAttr(s) { return String(s ?? "").replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
 
-  function escAttr(s) {
-    return String(s ?? "")
-      .replaceAll("&","&amp;").replaceAll('"',"&quot;")
-      .replaceAll("<","&lt;").replaceAll(">","&gt;");
-  }
-
-  async function updatePrintHeader() {
-    const typeLabel = labelByType(state.type);
-    const bName     = await getSelectedBuildingName();
-    const title     = bName ? `${bName} ${typeLabel} 매물 리스트` : `${typeLabel} 매물 리스트`;
-    elPrintTitle.textContent = title;
-    const today   = new Date();
-    const dateStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
-    elPrintSub.textContent =
-      `출력일: ${dateStr} · 조건: ${state.listedOnly?"✅매물나옴":"전체"}` +
-      `${state.dealType?" · "+state.dealType:""}` +
-      `${state.status?" · "+state.status:""}`;
-  }
-
-  async function getSelectedBuildingName() {
-    const id = state.buildingId || elBuilding.value; if (!id) return "";
-    const b  = await DataUtil.findBuildingById(id);
-    return b?.name || "";
-  }
-
-  function labelByType(t) {
-    const m = {
-      shop:"상가", officetel:"오피스텔", apartment:"아파트",
-      bizcenter:"지식산업센터", land_dev:"토지(시행부지)",
-      land_single:"토지(단독주택)", land_general:"토지(일반)", factory:"공장/창고",
-    };
-    return m[t] || "매물";
-  }
-
-  function fmtMan(v) {
-    const n = Number(v);
-    if (!isFinite(n) || n === 0) return "-";
-    return n.toLocaleString("ko-KR") + "만원";
-  }
-  function fmtNum(v) {
-    const n = Number(v); if (!isFinite(n)) return String(v ?? "");
-    return String(v).includes(".") ? n.toFixed(2).replace(/\.00$/, "") : n.toLocaleString("ko-KR");
-  }
-  function calcPyeongPrice(priceMan, areaPy) {
-    const p = Number(priceMan), a = Number(areaPy);
-    if (!isFinite(p) || !isFinite(a) || a <= 0) return "-";
-    return Math.round(p / a).toLocaleString("ko-KR") + "만원/평";
-  }
-  function esc(s) {
-    return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-  }
-  function pad2(n) { return String(n).padStart(2, "0"); }
-
+  window.toggleDescArea = toggleDescArea;
 })();

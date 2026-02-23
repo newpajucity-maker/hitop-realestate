@@ -140,14 +140,49 @@
     }
 
     const record = { ...base, ...extra };
-    const arr = await getBuildings();
-    let next;
-    if (editId) { next = arr.map(x => (x.id === editId ? record : x)); toast("수정 완료"); }
-    else { record.createdAt = new Date().toISOString(); next = [record, ...arr]; toast("등록 완료"); }
 
-    await setBuildings(next);
-    await renderList();
-    clearForm();
+    // [BUG FIX] getBuildings 로그
+    let arr;
+    try {
+      arr = await getBuildings();
+      console.log("[saveBuilding] getBuildings 결과:", arr.length, "건", arr);
+    } catch (e) {
+      console.error("[saveBuilding] getBuildings 실패:", e);
+      toast("저장 실패 - 데이터 읽기 오류");
+      return;
+    }
+
+    let next;
+    if (editId) {
+      next = arr.map(x => (x.id === editId ? record : x));
+    } else {
+      record.createdAt = new Date().toISOString();
+      next = [record, ...arr];
+    }
+    console.log("[saveBuilding] 저장할 배열:", next.length, "건", next);
+
+    // [BUG FIX] setBuildings try/catch - 실패해도 renderList는 반드시 실행
+    let saveOk = false;
+    try {
+      await setBuildings(next);
+      saveOk = true;
+      console.log("[saveBuilding] setBuildings 완료");
+    } catch (e) {
+      console.error("[saveBuilding] setBuildings 실패:", e);
+      toast("저장 실패 ❌");
+    }
+
+    if (saveOk) {
+      toast(editId ? "수정 완료 ✅" : "등록 완료 ✅");
+      clearForm();
+    }
+
+    // [BUG FIX] 저장 성공/실패와 무관하게 renderList 실행 (보호 코드)
+    try {
+      await renderList();
+    } catch (e) {
+      console.error("[saveBuilding] renderList 실패:", e);
+    }
   }
 
   function clearForm() {
@@ -229,9 +264,23 @@
   }
 
   async function renderList() {
-    let arr = await getBuildings();
+    let arr;
+    try {
+      arr = await getBuildings();
+      console.log("[renderList] getBuildings 반환:", arr.length, "건", arr);
+    } catch (e) {
+      console.error("[renderList] getBuildings 실패:", e);
+      arr = [];
+    }
+
+    if (arr.length === 0) {
+      console.warn("[renderList] arr.length === 0 원인 체크 → localStorage 'buildings' :", localStorage.getItem("buildings"));
+    }
+
     const activeTab  = elTabs.querySelector(".tab.active");
     const activeType = activeTab ? activeTab.dataset.type : "shop";
+    console.log("[renderList] 현재 탭 타입:", activeType);
+
     arr = arr.filter(x => x.type === activeType).sort((a,b) => (a.name||"").localeCompare((b.name||""),"ko"));
 
     elList.innerHTML = "";

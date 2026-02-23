@@ -24,13 +24,10 @@
 
   Estimate.renderAndPrint = async function (listing, opts = {}) {
     const root = document.getElementById("estimatePrint");
-    // [BUG FIX] 인쇄 전에 잠깐 display:block 으로 바꿔서 렌더링 완료 보장
     if (root) root.style.display = "block";
     await fillEstimate(listing, opts);
-    // 렌더링 사이클 한 번 기다린 후 인쇄
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     window.print();
-    // 인쇄 다이얼로그 닫힌 후 다시 숨김
     if (root) root.style.display = "";
   };
 
@@ -353,9 +350,13 @@ ${plan.url ? `
   <table class="est-table est-etc">
     <tbody>
       <tr>
-        <th>취득세 (${c.acqTaxRate.toFixed(1)}%) 및 등기비용</th>
-        <td class="right">${(c.acqTaxRate + c.regRate).toFixed(1)}%</td>
-        <td class="right bold">${manW(c.etcTotal)}</td>
+        <th>취득세 (${c.acqTaxRate.toFixed(1)}%)</th>
+        <td class="right">${c.acqTaxRate.toFixed(1)}%</td>
+        <td class="right bold">${manW(c.acqTax)}</td>
+      </tr>
+      <tr>
+        <th>등기비용</th>
+        <td class="right" colspan="2" style="text-align:center; color:#555;">별 도</td>
       </tr>
     </tbody>
   </table>
@@ -364,13 +365,13 @@ ${plan.url ? `
 
 <!-- ═══ 푸터 ═══ -->
 <div class="est-doc-footer">
-  <div class="est-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969 &nbsp;|&nbsp; 경기도 파주시</div>
+  <div class="est-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
   <div class="est-footer-note">본 견적서는 참고용이며 실제 거래 조건과 다를 수 있습니다.</div>
 </div>`;
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  입력폼 (P2-07) ── detail.html 하단 견적 조정 패널
+  //  입력폼 ── detail.html 견적서 미리보기 + 수정 패널
   // ════════════════════════════════════════════════════════════════
   Estimate.renderInputForm = function (containerId, listing) {
     const wrap = document.getElementById(containerId);
@@ -378,93 +379,73 @@ ${plan.url ? `
 
     const est = (listing.estimate || {});
 
+    // ── 패널 HTML ──────────────────────────────────────────────
     wrap.innerHTML = `
-<div class="est-form-box">
-  <div class="est-form-title">📊 수익률 견적 입력</div>
-  <div class="est-form-section-label">▸ 대출 / 비용</div>
-  <div class="est-form-grid">
+<div class="ef-panel">
+  <div class="ef-panel-title">📊 견적서 조건 설정</div>
+  <div class="ef-row">
     <div class="ef-group">
-      <label>대출비율 (%)</label>
-      <input id="ef_ltvPct"      type="number" step="1"   min="0" max="100"
-             value="${fin(est.ltvPct,        60)}" placeholder="60">
+      <label>대출 비율 <span class="ef-unit">(%)</span></label>
+      <input id="ef_ltvPct" type="number" step="1" min="0" max="100"
+             value="${fin(est.ltvPct, 60)}" placeholder="60">
     </div>
     <div class="ef-group">
-      <label>이자율 (연 %)</label>
-      <input id="ef_intRate"     type="number" step="0.1" min="0"
-             value="${fin(est.interestRate,  4.2)}" placeholder="4.2">
+      <label>이자율 (연) <span class="ef-unit">(%)</span></label>
+      <input id="ef_intRate" type="number" step="0.01" min="0"
+             value="${fin(est.interestRate, 4.2)}" placeholder="4.2">
     </div>
     <div class="ef-group">
-      <label>취득세율 (%)</label>
-      <input id="ef_acqTaxRate"  type="number" step="0.1" min="0"
-             value="${fin(est.acqTaxRate,    4.6)}" placeholder="4.6">
-    </div>
-    <div class="ef-group">
-      <label>등기비율 (%) <span style="font-size:8pt;color:#888;">취득세+등기=합산%</span></label>
-      <input id="ef_regRate"     type="number" step="0.1" min="0"
-             value="${fin(est.regRate,        0.4)}" placeholder="0.4">
+      <label>취득세율 <span class="ef-unit">(%)</span></label>
+      <input id="ef_acqTaxRate" type="number" step="0.1" min="0"
+             value="${fin(est.acqTaxRate, 4.6)}" placeholder="4.6">
     </div>
   </div>
-  <div class="est-form-section-label" style="margin-top:10px;">▸ 납입일정 비율 (%)</div>
-  <div class="est-form-grid">
-    <div class="ef-group">
-      <label>계약금 (%)</label>
-      <input id="ef_contractPct" type="number" step="1" min="0" max="100"
-             value="${fin((est.payPlan||{}).contractPct, 20)}" placeholder="20">
-    </div>
-    <div class="ef-group">
-      <label>중도금 1 (%)</label>
-      <input id="ef_interim1Pct" type="number" step="1" min="0" max="100"
-             value="${fin((est.payPlan||{}).interim1Pct, 20)}" placeholder="20">
-    </div>
-    <div class="ef-group">
-      <label>중도금 2 (%)</label>
-      <input id="ef_interim2Pct" type="number" step="1" min="0" max="100"
-             value="${fin((est.payPlan||{}).interim2Pct,  0)}" placeholder="0">
-    </div>
-    <div class="ef-group">
-      <label>잔금 (자동계산)</label>
-      <input id="ef_balancePct"  type="number" readonly
-             style="background:#f0f0f0; color:#888;" placeholder="60">
-    </div>
+  <div class="ef-actions">
+    <button class="ef-btn-preview" type="button" id="ef_btnPreview">🔄 견적서 미리보기 갱신</button>
+    <button class="ef-btn-print"   type="button" id="ef_btnPrint">🖨️ 인쇄 출력</button>
   </div>
-  <div class="est-form-actions">
-    <button class="btn"         type="button" id="ef_btnPreview">미리보기 갱신</button>
-    <button class="btn primary" type="button" id="ef_btnPrint">인쇄 출력</button>
-  </div>
+  <div class="ef-hint">※ 값을 바꾼 후 <strong>미리보기 갱신</strong> 버튼을 누르면 아래 견적서가 즉시 업데이트됩니다.</div>
+</div>
+
+<div id="ef_previewArea" class="ef-preview-area">
+  <div id="estimatePrint"></div>
 </div>`;
 
-    // 잔금 자동 계산
-    function updateBalance() {
-      const c = Number(document.getElementById("ef_contractPct").value) || 0;
-      const i1= Number(document.getElementById("ef_interim1Pct").value)|| 0;
-      const i2= Number(document.getElementById("ef_interim2Pct").value)|| 0;
-      const b = 100 - c - i1 - i2;
-      document.getElementById("ef_balancePct").value = b >= 0 ? b : 0;
-    }
-    ["ef_contractPct","ef_interim1Pct","ef_interim2Pct"].forEach(id => {
-      document.getElementById(id).addEventListener("input", updateBalance);
-    });
-    updateBalance();
-
+    // ── 이벤트 ──────────────────────────────────────────────────
     function getOpts() {
       return {
-        ltvPct:       Number(document.getElementById("ef_ltvPct").value)      || 60,
-        interestRate: Number(document.getElementById("ef_intRate").value)     || 4.2,
-        acqTaxRate:   Number(document.getElementById("ef_acqTaxRate").value)  || 4.6,
-        regRate:      Number(document.getElementById("ef_regRate").value)     || 0.4,
-        payPlan: {
-          contractPct: Number(document.getElementById("ef_contractPct").value)|| 20,
-          interim1Pct: Number(document.getElementById("ef_interim1Pct").value)|| 20,
-          interim2Pct: Number(document.getElementById("ef_interim2Pct").value)||  0,
-        },
+        ltvPct:       Number(document.getElementById("ef_ltvPct").value)     || 60,
+        interestRate: Number(document.getElementById("ef_intRate").value)    || 4.2,
+        acqTaxRate:   Number(document.getElementById("ef_acqTaxRate").value) || 4.6,
+        regRate:      0,   // 등기비용은 별도 표시이므로 계산에서 제외
       };
     }
 
     document.getElementById("ef_btnPreview").addEventListener("click", async () => {
+      const btn = document.getElementById("ef_btnPreview");
+      btn.textContent = "⏳ 갱신 중...";
+      btn.disabled = true;
       await Estimate.preview(listing, getOpts());
+      btn.textContent = "🔄 견적서 미리보기 갱신";
+      btn.disabled = false;
     });
+
     document.getElementById("ef_btnPrint").addEventListener("click", async () => {
+      const btn = document.getElementById("ef_btnPrint");
+      btn.textContent = "⏳ 준비 중...";
+      btn.disabled = true;
       await Estimate.renderAndPrint(listing, getOpts());
+      btn.textContent = "🖨️ 인쇄 출력";
+      btn.disabled = false;
+    });
+
+    // 입력값 변경 시 실시간 힌트
+    ["ef_ltvPct","ef_intRate","ef_acqTaxRate"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => {
+        document.querySelector(".ef-hint").style.color = "#c0392b";
+        document.querySelector(".ef-hint").textContent =
+          "⚠️ 값이 변경되었습니다. 미리보기 갱신 버튼을 눌러 업데이트하세요.";
+      });
     });
 
     // 최초 자동 렌더
@@ -695,31 +676,108 @@ ${plan.url ? `
   padding-left: 2pt;
 }
 
-/* ── 입력폼 (화면 전용) ── */
-.est-form-box {
+/* ── 견적 조건 설정 패널 ── */
+.ef-panel {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fb 100%);
+  border: 2px solid #2c4e8a;
+  border-radius: 10px;
+  padding: 16px 20px 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(44,78,138,0.10);
+}
+.ef-panel-title {
+  font-size: 12pt;
+  font-weight: 800;
+  color: #1c3d6e;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #2c4e8a;
+}
+.ef-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ef-group label {
+  display: block;
+  font-size: 9pt;
+  font-weight: 600;
+  color: #1a2d4e;
+  margin-bottom: 4px;
+}
+.ef-unit { font-size: 8pt; font-weight: 400; color: #888; }
+.ef-group input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #2c4e8a;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 11pt;
+  font-weight: 700;
+  color: #1c3d6e;
+  background: #fff;
+  text-align: right;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ef-group input:focus {
+  outline: none;
+  border-color: #e67e22;
+  box-shadow: 0 0 0 3px rgba(230,126,34,0.15);
+}
+.ef-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ef-btn-preview {
+  flex: 1;
+  background: #fff;
+  border: 2px solid #2c4e8a;
+  color: #2c4e8a;
+  padding: 9px 0;
+  border-radius: 6px;
+  font-size: 10.5pt;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ef-btn-preview:hover { background: #e8f0fb; }
+.ef-btn-preview:disabled { opacity: 0.6; cursor: default; }
+.ef-btn-print {
+  flex: 1;
+  background: #1c3d6e;
   border: 2px solid #1c3d6e;
+  color: #fff;
+  padding: 9px 0;
+  border-radius: 6px;
+  font-size: 10.5pt;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ef-btn-print:hover { background: #2c4e8a; }
+.ef-btn-print:disabled { opacity: 0.6; cursor: default; }
+.ef-hint {
+  font-size: 8.5pt;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* ── 미리보기 영역 ── */
+.ef-preview-area {
+  border: 1.5px solid #d0d8ea;
   border-radius: 8px;
-  padding: 16px;
-  margin-top: 18px;
-  background: #f7f9ff;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
-.est-form-title { font-weight: 700; font-size: 11pt; margin-bottom: 12px; color: #1c3d6e; }
-.est-form-section-label { font-size: 9.5pt; font-weight: 700; color: #333; margin-bottom: 6px; }
-.est-form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px 24px; }
-.ef-group label { display: block; font-size: 9pt; color: #444; margin-bottom: 3px; }
-.ef-group input  {
-  width: 100%; box-sizing: border-box;
-  border: 1px solid #ced4da; border-radius: 4px;
-  padding: 5px 8px; font-size: 10pt;
+.ef-preview-area #estimatePrint {
+  display: block !important;  /* 미리보기 영역 안에선 항상 표시 */
 }
-.est-form-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
-.btn.primary {
-  background: #1c3d6e; color: #fff; border: none;
-  padding: 6px 18px; border-radius: 4px; cursor: pointer; font-size: 10pt;
-}
-.btn { background: #fff; border: 1px solid #1c3d6e; color: #1c3d6e;
-  padding: 6px 18px; border-radius: 4px; cursor: pointer; font-size: 10pt;
-}
+
+/* ── 기존 est-form-box 호환 유지 ── */
+.est-form-box { display: none; }
 
 /* ── 푸터 ── */
 .est-doc-footer {
@@ -814,7 +872,7 @@ ${plan.url ? `
   function fmtPct(v) {
     const n = Number(v);
     if (!isFinite(n) || n <= 0) return "-";
-    return n.toFixed(1) + "%";
+    return n.toFixed(2) + "%";
   }
   function fin(v, fallback) {
     const n = Number(v);

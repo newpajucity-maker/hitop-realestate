@@ -31,7 +31,9 @@
          <a href="home.html" class="btn">홈</a>
          <a href="customers.html" class="btn">고객관리</a>
          <a href="index.html" class="btn">매물목록</a>
-        <button class="btn" id="btnExport">백업(JSON)</button>
+        <button class="btn btn-sm" id="btnExport">백업</button>
+        <label class="btn btn-sm" style="cursor:pointer;">복원<input type="file" id="btnRestore" accept=".json" style="display:none;"/></label>
+        <button class="btn btn-sm" id="btnExcel">엑셀 내보내기</button>
         <button class="btn danger" id="btnReset">전체삭제</button>
       </div>
     </header>
@@ -140,7 +142,9 @@
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <!-- JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="assets/js/storage.js"></script>
   <script src="assets/js/buildings.js"></script>
+  <script src="assets/js/backup.js"></script>
 </body>
 </html>

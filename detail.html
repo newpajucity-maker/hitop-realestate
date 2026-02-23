@@ -10,7 +10,6 @@
 
   <link rel="stylesheet" href="assets/css/app.css"/>
   <link rel="stylesheet" href="assets/css/detail.css"/>
-  <link rel="stylesheet" href="assets/css/estimate-print.css"/>
   <link rel="stylesheet" href="assets/css/info-print.css"/>
 </head>
 
@@ -31,7 +30,7 @@
         <button class="btn" id="btnEdit">수정</button>
         <button class="btn" id="btnInfoPrintCustomer">고객용 출력</button>
         <button class="btn" id="btnInfoPrintData">자료용 출력</button>
-        <button class="btn primary" id="btnEstimate">견적서 출력(풀)</button>
+        <button class="btn primary" id="btnEstimate">📊 견적서 이동</button>
       </div>
     </header>
 
@@ -62,14 +61,11 @@
         </div>
         <div id="dPlanBox"></div>
 
-        <div style="margin-top:14px;">
-          <div class="section-title">
-            <h2>안내</h2>
-            <span class="sub">출력</span>
-          </div>
-          <div class="small">
-            - "견적서 출력(풀)" 버튼을 누르면 A4 고급 보고서 형태로 출력됩니다.<br/>
-            - 상가: 해당층 평면도 자동 연결 / 오피스텔: 배치도 자동 연결
+        <!-- 견적서 아닌 물건 안내 -->
+        <div id="dNonSaleNotice" style="display:none; margin-top:14px;">
+          <div class="small" style="padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:10px;">
+            💡 견적서는 <strong>매매·분양 물건</strong>에서만 출력됩니다.<br>
+            고객용·자료용 설명서 출력은 상단 버튼을 이용하세요.
           </div>
         </div>
       </section>
@@ -77,15 +73,11 @@
 
   </div>
 
-  <!-- 견적서 출력 전용 영역(프린트에서만 보임) -->
-  <div id="estimatePrint"></div>
-  <div id="estimateFormWrap"></div>
-  <!-- 매물설명 출력 전용 영역 -->
+  <!-- 매물설명 출력 전용 영역 (프린트에서만 보임) -->
   <div id="infoPrint"></div>
 
   <script src="assets/js/storage.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/estimate.js"></script>
   <script src="assets/js/detail.js"></script>
 </body>
 </html>

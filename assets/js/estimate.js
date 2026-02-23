@@ -152,32 +152,49 @@
     const today   = new Date();
     const dateStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
 
-    const titleParts = [x.buildingName, x.unit || x.ho].filter(Boolean).join(" ");
-    const headTitle  = titleParts ? `${titleParts} 견적서` : "매물 견적서";
+    const unitPart   = x.unit || x.ho || "";
+    const titleParts = [x.buildingName, unitPart].filter(Boolean).join(" ");
+    const dealLabel  = x.dealType === "매매" || x.dealType === "분양" ? "분양" : "임대";
+    const headTitle  = titleParts
+      ? `${titleParts} ${dealLabel} 견적서`
+      : "매물 견적서";
 
     const exArea  = fmtArea(x.areaExclusiveM2, x.areaExclusivePy);
     const supArea = fmtArea(x.areaSupplyM2,    x.areaSupplyPy);
 
-    // 납입일정 행
-    const schedRows = c.schedule.map(s =>
-      `<tr>
-        <td>${esc(s.label)}</td>
+    // 납입일정 행 - 납부시기 포함
+    const schedRows = c.schedule.map((s, i) => {
+      const dueTimes = ["계약일", "중도금 납부일", "중도금 납부일", "준공 후 잔금지일"];
+      const dueLabel = s.label.trim().startsWith("잔") ? "준공 후 잔금지일" : dueTimes[i] || "";
+      return `<tr>
+        <td class="sched-label">${esc(s.label)}</td>
         <td class="right">${s.pct}%</td>
         <td class="right">${manW(s.base)}</td>
         <td class="right">${s.vat > 0 ? manW(s.vat) : "-"}</td>
         <td class="right bold">${manW(s.total)}</td>
-      </tr>`
-    ).join("");
+        <td class="center sched-due">${esc(dueLabel)}</td>
+      </tr>`;
+    }).join("");
+
+    // 부가세 표기
+    const vatDisplay = c.vatMode === "별도"
+      ? `${c.vatRate}%`
+      : (c.vatMode === "포함" ? "포함" : "해당없음");
+    const vatAmtDisplay = c.vatMode === "별도" ? manW(c.vatAmt) : c.vatMode;
 
     root.innerHTML = `
 <!-- ═══ 헤더 ═══ -->
-<div class="est-header">
-  <div class="est-header-left">
-    <div class="est-header-badge">하이탑부동산 견적서</div>
-    <div class="est-header-title">${esc(headTitle)}</div>
+<div class="est-doc-header">
+  <div class="est-doc-header-inner">
+    <div class="est-doc-badge">하이탑부동산</div>
+    <div class="est-doc-title">${esc(headTitle)}</div>
   </div>
-  <div class="est-header-date">출력일: ${dateStr}</div>
+  <div class="est-doc-meta">
+    <div class="est-doc-date">출력일: ${dateStr}</div>
+    <div class="est-doc-phone">☎ 031-949-8969</div>
+  </div>
 </div>
+<div class="est-doc-divider"></div>
 
 ${plan.url ? `
 <div class="est-figure">
@@ -187,37 +204,35 @@ ${plan.url ? `
 
 <!-- ═══ ① 개요 ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 개요</div>
+  <div class="est-section-bar">◆ 개요</div>
   <table class="est-table est-overview">
     <tbody>
       <tr>
-        <th>주&nbsp;&nbsp;&nbsp;소</th>
-        <td colspan="3">${esc(x.address || "-")}</td>
-        <th>호&nbsp;&nbsp;&nbsp;실</th>
-        <td class="highlight-cell">${esc(x.unit || x.ho || "-")}</td>
+        <th class="ov-th-wide">주&nbsp;&nbsp;&nbsp;&nbsp;소</th>
+        <td class="ov-td-addr">${esc(x.address || "-")}</td>
+        <th class="ov-th-sm">호&nbsp;&nbsp;&nbsp;실</th>
+        <td class="ov-td-ho highlight-gold bold">${esc(unitPart || "-")}</td>
       </tr>
       <tr>
         <th>전용면적</th>
         <td>${esc(exArea)}</td>
         <th>분양면적</th>
         <td>${esc(supArea)}</td>
-        <th>건물용도</th>
-        <td>${esc(x.currentBiz || x.dealType || "-")}</td>
       </tr>
       <tr>
         <th>분&nbsp;&nbsp;양&nbsp;&nbsp;가</th>
-        <td class="highlight-cell bold">${manW(c.basePrice)}</td>
-        <th>부가세(건물분) ${c.vatMode === "별도" ? c.vatRate+"%" : ""}</th>
-        <td>${c.vatMode === "별도" ? manW(c.vatAmt) : (c.vatMode === "포함" ? "포함" : "해당없음")}</td>
-        <th>총&nbsp;분&nbsp;양&nbsp;가</th>
-        <td class="highlight-cell bold">${manW(c.totalPrice)}</td>
+        <td class="highlight-gold bold">${manW(c.basePrice)}</td>
+        <th>부가세(건물분) <span class="vat-rate-label">${vatDisplay}</span></th>
+        <td>${vatAmtDisplay}</td>
       </tr>
       <tr>
+        <th>총&nbsp;&nbsp;분&nbsp;&nbsp;양&nbsp;&nbsp;가</th>
+        <td class="highlight-gold bold">${manW(c.totalPrice)}</td>
         <th>평&nbsp;&nbsp;당&nbsp;&nbsp;가</th>
-        <td class="bold" colspan="5">
+        <td class="bold">
           ${c.pricePerPy !== null
-            ? `${Math.round(c.pricePerPy).toLocaleString("ko-KR")}원/평`
-              + (c.supplyPy > 0 ? ` &nbsp;<span class="est-note-inline">(분양 ${c.supplyPy}평 기준)</span>` : "")
+            ? `${Math.round(c.pricePerPy).toLocaleString("ko-KR")}원`
+              + (c.supplyPy > 0 ? `<span class="est-note-inline"> (분양 ${c.supplyPy}평 기준)</span>` : "")
             : "-"}
         </td>
       </tr>
@@ -227,13 +242,16 @@ ${plan.url ? `
 
 <!-- ═══ ② 자금 및 납입일정 ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 자금 및 납입일정 &nbsp;<span class="est-unit-label">[단위: 원]</span></div>
+  <div class="est-section-bar">◆ 자금 및 납입일정 <span class="est-unit-label">[단위: 원]</span></div>
   <table class="est-table est-schedule">
     <thead>
       <tr>
-        <th>구 분</th><th class="right">비 율</th>
-        <th class="right">분 양 가</th><th class="right">부 가 세</th>
-        <th class="right">합 계</th>
+        <th class="sched-th-label">구&nbsp;분</th>
+        <th class="right sched-th-pct">비&nbsp;율</th>
+        <th class="right">분&nbsp;양&nbsp;가</th>
+        <th class="right">부&nbsp;가&nbsp;세</th>
+        <th class="right">합&nbsp;&nbsp;&nbsp;계</th>
+        <th class="center sched-th-due">납&nbsp;부&nbsp;시&nbsp;기</th>
       </tr>
     </thead>
     <tbody>
@@ -241,11 +259,12 @@ ${plan.url ? `
     </tbody>
     <tfoot>
       <tr class="foot-total">
-        <td>합&nbsp;&nbsp;&nbsp;계</td>
+        <td class="sched-label">합&nbsp;&nbsp;&nbsp;계</td>
         <td class="right">100%</td>
         <td class="right">${manW(c.basePrice)}</td>
         <td class="right">${c.vatAmt > 0 ? manW(c.vatAmt) : "-"}</td>
         <td class="right bold">${manW(c.totalPrice)}</td>
+        <td></td>
       </tr>
     </tfoot>
   </table>
@@ -253,33 +272,28 @@ ${plan.url ? `
 
 <!-- ═══ ③ 기타비용 ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 기타비용</div>
-  <table class="est-table">
+  <div class="est-section-bar">◆ 기타비용</div>
+  <table class="est-table est-etc">
     <tbody>
       <tr>
-        <th>취득세 (분양가 × ${c.acqTaxRate.toFixed(1)}%)</th>
-        <td class="right">${manW(c.acqTax)}</td>
-        <th>등기비용 (분양가 × ${c.regRate.toFixed(1)}%)</th>
-        <td class="right">${c.regCost > 0 ? manW(c.regCost) : "별도"}</td>
-      </tr>
-      <tr class="row-bold">
-        <th colspan="3">기타비용 합계 (분양가 × ${(c.acqTaxRate + c.regRate).toFixed(1)}%)</th>
-        <td class="right">${manW(c.etcTotal)}</td>
+        <th>취득세(분양가 ${c.acqTaxRate.toFixed(1)}%) 및 등기비용</th>
+        <td class="right bold">${c.regRate > 0 ? (c.acqTaxRate + c.regRate).toFixed(1) + "%" : c.acqTaxRate.toFixed(1) + "%"}</td>
+        <td class="right bold">${manW(c.etcTotal)}</td>
       </tr>
     </tbody>
   </table>
-  <div class="est-note">※ 기타비용 기준: VAT 제외 순분양가. 취득세율은 건물 용도·면적에 따라 달라질 수 있습니다.</div>
+  <div class="est-note">※ VAT 제외 순분양가 기준. 취득세율은 건물 용도·면적에 따라 달라질 수 있습니다.</div>
 </div>
 
 <!-- ═══ ④ 대출 ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 대출</div>
-  <table class="est-table">
+  <div class="est-section-bar">◆ 대출</div>
+  <table class="est-table est-loan">
     <tbody>
       <tr>
-        <th>대 출 액 &nbsp; ${c.ltvPct.toFixed(0)}%</th>
-        <td class="right bold">${c.loanAmt > 0 ? manW(c.loanAmt) : "미대출"}</td>
-        <th>월 이 자 &nbsp; ${c.intRate.toFixed(1)}%</th>
+        <th>대&nbsp;출&nbsp;액 &nbsp;${c.ltvPct.toFixed(0)}%</th>
+        <td class="right bold highlight-gold">${c.loanAmt > 0 ? manW(c.loanAmt) : "미대출"}</td>
+        <th>월&nbsp;&nbsp;이&nbsp;&nbsp;자 &nbsp;${c.intRate.toFixed(1)}%</th>
         <td class="right bold">${c.monthlyInt > 0 ? manW(c.monthlyInt) : "-"}</td>
       </tr>
     </tbody>
@@ -289,18 +303,14 @@ ${plan.url ? `
 
 <!-- ═══ ⑤ 임대(예상) ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 임대(예상) &nbsp;<span class="est-unit-label">[VAT별도]</span></div>
-  <table class="est-table">
+  <div class="est-section-bar">◆ 임대(예상) <span class="est-unit-label">[VAT별도]</span></div>
+  <table class="est-table est-rent">
     <tbody>
       <tr>
-        <th>보 증 금</th>
-        <td class="right highlight-cell bold">${man0W(c.deposit)}</td>
-        <th>월 &nbsp; 세</th>
-        <td class="right highlight-cell bold">${c.monthlyRent > 0 ? manW(c.monthlyRent) : "-"}</td>
-      </tr>
-      <tr>
-        <th>관 리 비</th>
-        <td colspan="3" class="right">별도</td>
+        <th>보&nbsp;&nbsp;증&nbsp;&nbsp;금</th>
+        <td class="right highlight-gold bold">${man0W(c.deposit)}</td>
+        <th>월&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;세</th>
+        <td class="right highlight-gold bold">${c.monthlyRent > 0 ? manW(c.monthlyRent) : "-"}</td>
       </tr>
     </tbody>
   </table>
@@ -308,48 +318,37 @@ ${plan.url ? `
 
 <!-- ═══ ⑥ 투자금 & 수익률 ═══ -->
 <div class="est-section">
-  <div class="est-section-title">■ 투자금 &amp; 수익률 &nbsp;<span class="est-unit-label">[VAT, 기타비용 미포함]</span></div>
+  <div class="est-section-bar">◆ 투자금 &amp; 수익률 <span class="est-unit-label">[VAT, 기타비용 미포함]</span></div>
   <table class="est-compare-table">
     <thead>
       <tr>
-        <th></th>
-        <th class="center">대출시 (LTV ${c.ltvPct.toFixed(0)}%)</th>
-        <th class="center">미대출시</th>
+        <th class="cmp-th-label"></th>
+        <th class="center cmp-th-col">대출시투자자금<br><span class="cmp-sub">(분양가−대출금−보증금)</span></th>
+        <th class="center cmp-th-col">미대출시<br><span class="cmp-sub">(분양가−보증금)</span></th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <th>투자금액</th>
-        <td class="right highlight-cell bold">${manW(c.investWithLoan)}</td>
+        <th>투 자 금 액</th>
+        <td class="right highlight-gold bold">${manW(c.investWithLoan)}</td>
         <td class="right bold">${manW(c.investWithoutLoan)}</td>
       </tr>
-      <tr>
-        <th>월 순수익<br><span class="sub-label">(월세 − 월이자)</span></th>
-        <td class="right">${c.ltvPct > 0 ? manW(c.netMonthlyWithLoan) : "-"}</td>
-        <td class="right">${manW(c.netMonthlyWithoutLoan)}</td>
-      </tr>
-      <tr>
-        <th>연 순수익</th>
-        <td class="right">${c.ltvPct > 0 && c.annualNetWithLoan > 0 ? manW(c.annualNetWithLoan) : "-"}</td>
-        <td class="right">${c.annualNetWithoutLoan > 0 ? manW(c.annualNetWithoutLoan) : "-"}</td>
-      </tr>
       <tr class="yield-row-highlight">
-        <th>수 익 률</th>
+        <th>수&nbsp;&nbsp;익&nbsp;&nbsp;률</th>
         <td class="right big-yield">${esc(c.ltvPct > 0 ? fmtPct(c.yieldWithLoan) : "-")}</td>
         <td class="right big-yield">${esc(fmtPct(c.yieldWithoutLoan))}</td>
       </tr>
     </tbody>
   </table>
   <div class="est-note">
-    ※ 투자금(대출시) = 분양가 − 대출금 − 보증금<br>
-    ※ 투자금(미대출시) = 분양가 − 보증금<br>
-    ※ 수익률 = (월세 − 월이자) × 12 ÷ 투자금 × 100 &nbsp;|&nbsp; 관리비 미포함
+    ※ 수익률(대출시) = (월세 − 월이자) × 12 ÷ 투자금 × 100<br>
+    ※ 수익률(미대출시) = 월세 × 12 ÷ 투자금 × 100 &nbsp;|&nbsp; 관리비 미포함
   </div>
 </div>
 
 <!-- ═══ 푸터 ═══ -->
-<div class="est-footer">
-  <div class="est-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
+<div class="est-doc-footer">
+  <div class="est-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969 &nbsp;|&nbsp; 경기도 파주시</div>
   <div class="est-footer-note">본 견적서는 참고용이며 실제 거래 조건과 다를 수 있습니다.</div>
 </div>`;
   }
@@ -460,87 +459,256 @@ ${plan.url ? `
   //  CSS 자동 주입
   // ════════════════════════════════════════════════════════════════
   (function injectCSS() {
-    if (document.getElementById("estimateCssV3")) return;
+    if (document.getElementById("estimateCssV4")) return;
     const s = document.createElement("style");
-    s.id = "estimateCssV3";
+    s.id = "estimateCssV4";
     s.textContent = `
-/* ── 헤더 ── */
-.est-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8pt; }
-.est-header-badge { display:inline-block; background:#1c3d6e; color:#fff; font-size:9pt; padding:2pt 8pt; border-radius:3pt; margin-bottom:3pt; }
-.est-header-title { font-size:15pt; font-weight:700; }
-.est-header-date  { font-size:9pt; color:#555; padding-top:4pt; }
+/* ══════════════════════════════════════
+   HITOP 견적서 v4 — 실물 견적서 스타일
+   ══════════════════════════════════════ */
+
+#estimatePrint {
+  font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif;
+  font-size: 9.5pt;
+  color: #111;
+  line-height: 1.45;
+  max-width: 750px;
+  margin: 0 auto;
+  padding: 18pt 20pt;
+  background: #fff;
+}
+
+/* ── 문서 헤더 ── */
+.est-doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 4pt;
+}
+.est-doc-badge {
+  display: inline-block;
+  background: #1c3d6e;
+  color: #fff;
+  font-size: 8pt;
+  padding: 2pt 9pt;
+  border-radius: 2pt;
+  margin-bottom: 4pt;
+  letter-spacing: 0.5px;
+}
+.est-doc-title {
+  font-size: 15pt;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #111;
+}
+.est-doc-meta {
+  text-align: right;
+  font-size: 8.5pt;
+  color: #444;
+  line-height: 1.8;
+}
+.est-doc-phone { font-weight: 700; color: #1c3d6e; }
+.est-doc-divider {
+  height: 2pt;
+  background: linear-gradient(to right, #1c3d6e, #4a7fc1, #1c3d6e);
+  margin-bottom: 10pt;
+  border: none;
+}
 
 /* ── 섹션 ── */
-.est-section { margin-bottom:11pt; page-break-inside:avoid; }
-.est-section-title { font-size:10pt; font-weight:700; background:#e8eef8; border-left:4px solid #1c3d6e; padding:3pt 8pt; margin-bottom:5pt; }
-.est-unit-label { font-size:8pt; font-weight:400; color:#555; }
-.est-note-inline { font-size:8pt; color:#777; }
+.est-section { margin-bottom: 8pt; page-break-inside: avoid; }
+.est-section-bar {
+  font-size: 9.5pt;
+  font-weight: 700;
+  background: #1c3d6e;
+  color: #fff;
+  border-left: none;
+  padding: 3.5pt 9pt;
+  margin-bottom: 0;
+  letter-spacing: 0.3px;
+}
+.est-unit-label { font-size: 8pt; font-weight: 400; opacity: 0.85; }
+.est-note-inline { font-size: 7.5pt; color: #888; }
+.vat-rate-label { font-size: 8pt; font-weight: 400; }
 
-/* ── 기본 테이블 ── */
-.est-table { width:100%; border-collapse:collapse; font-size:9pt; }
-.est-table th, .est-table td { border:1px solid #c8c8c8; padding:3.5pt 7pt; }
-.est-table th { background:#f4f6fb; font-weight:500; }
-.est-table td { text-align:right; }
-.est-table .bold { font-weight:700; }
-.est-table .right { text-align:right; }
-.est-table .highlight-cell { background:#fff7cc; font-weight:700; }
-.est-table .row-bold th,
-.est-table .row-bold td { font-weight:700; background:#dde3f0; }
+/* ── 공통 테이블 ── */
+.est-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  border: 1.5px solid #2c4e8a;
+}
+.est-table th {
+  background: #e8eef8;
+  font-weight: 600;
+  padding: 4pt 7pt;
+  border: 1px solid #b0bdd4;
+  color: #1a2d4e;
+  white-space: nowrap;
+}
+.est-table td {
+  padding: 4pt 7pt;
+  border: 1px solid #c8d0e0;
+  text-align: right;
+}
+.est-table .bold   { font-weight: 700; }
+.est-table .right  { text-align: right; }
+.est-table .center { text-align: center; }
+.est-table .highlight-gold {
+  background: #fff3b0;
+  font-weight: 700;
+}
 
 /* ── 개요 테이블 ── */
-.est-overview th { width:12%; text-align:center; }
-.est-overview td { text-align:left; padding-left:8pt; }
-.est-overview .highlight-cell { text-align:right; }
+.est-overview .ov-th-wide { width: 13%; text-align: center; }
+.est-overview .ov-th-sm   { width: 10%; text-align: center; }
+.est-overview .ov-td-addr { text-align: left; padding-left: 8pt; }
+.est-overview .ov-td-ho   { text-align: center; font-size: 12pt; }
 
 /* ── 납입일정 테이블 ── */
-.est-schedule thead th { background:#1c3d6e; color:#fff; text-align:right; }
-.est-schedule thead th:first-child { text-align:left; }
-.est-schedule tfoot .foot-total td { background:#dde3f0; font-weight:700; }
-.est-schedule tfoot .foot-total td:first-child { text-align:left; }
+.est-schedule thead th {
+  background: #2c4e8a;
+  color: #fff;
+  text-align: right;
+  border-color: #3a5f9a;
+}
+.est-schedule thead .sched-th-label { text-align: left; width: 18%; }
+.est-schedule thead .sched-th-pct   { width: 8%; }
+.est-schedule thead .sched-th-due   { width: 20%; }
+.est-schedule .sched-label          { text-align: left; font-weight: 600; }
+.est-schedule .sched-due            { font-size: 8pt; color: #333; }
+.est-schedule tfoot .foot-total td  { background: #dde3f0; font-weight: 700; border-color: #b0bdd4; }
+.est-schedule tfoot .foot-total .sched-label { text-align: left; }
 
-/* ── 비교 테이블 (⑥) ── */
-.est-compare-table { width:100%; border-collapse:collapse; font-size:9.5pt; }
-.est-compare-table th, .est-compare-table td { border:1px solid #c8c8c8; padding:4pt 8pt; }
-.est-compare-table thead th { background:#1c3d6e; color:#fff; text-align:center; }
-.est-compare-table tbody th { background:#f4f6fb; text-align:left; width:32%; font-weight:500; }
-.est-compare-table .right { text-align:right; }
-.est-compare-table .center { text-align:center; }
-.est-compare-table .highlight-cell { background:#fff7cc; }
-.est-compare-table .bold { font-weight:700; }
+/* ── 기타비용 ── */
+.est-etc th { width: 60%; text-align: left; padding-left: 9pt; }
+
+/* ── 대출 ── */
+.est-loan th { text-align: center; width: 22%; }
+
+/* ── 임대 ── */
+.est-rent th { text-align: center; width: 22%; }
+
+/* ── 비교 테이블 ── */
+.est-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+  border: 1.5px solid #2c4e8a;
+}
+.est-compare-table th, .est-compare-table td {
+  border: 1px solid #b0bdd4;
+  padding: 4.5pt 8pt;
+}
+.est-compare-table thead th {
+  background: #2c4e8a;
+  color: #fff;
+  text-align: center;
+  border-color: #3a5f9a;
+}
+.est-compare-table .cmp-th-label { width: 32%; background: #2c4e8a; }
+.est-compare-table .cmp-th-col   { width: 34%; }
+.est-compare-table .cmp-sub      { font-size: 7.5pt; font-weight: 400; opacity: 0.85; }
+.est-compare-table tbody th {
+  background: #e8eef8;
+  text-align: left;
+  font-weight: 600;
+  color: #1a2d4e;
+}
+.est-compare-table .right         { text-align: right; }
+.est-compare-table .center        { text-align: center; }
+.est-compare-table .highlight-gold{ background: #fff3b0; }
+.est-compare-table .bold          { font-weight: 700; }
 .est-compare-table .yield-row-highlight th,
-.est-compare-table .yield-row-highlight td { background:#e3fafc; font-weight:700; }
-.est-compare-table .big-yield { font-size:13pt; color:#1864ab; }
-.sub-label { font-size:7.5pt; font-weight:400; color:#666; }
+.est-compare-table .yield-row-highlight td {
+  background: #dceeff;
+  font-weight: 700;
+}
+.est-compare-table .big-yield {
+  font-size: 14pt;
+  font-weight: 900;
+  color: #1864ab;
+  text-align: right;
+}
 
 /* ── 도면 ── */
-.est-figure { text-align:center; margin-bottom:10pt; }
-.est-figure img { max-width:100%; max-height:180pt; }
-.est-caption { font-size:8pt; color:#555; margin-top:3pt; }
+.est-figure { text-align: center; margin-bottom: 8pt; }
+.est-figure img { max-width: 100%; max-height: 160pt; }
+.est-caption { font-size: 8pt; color: #555; margin-top: 3pt; }
 
 /* ── 노트 ── */
-.est-note { font-size:8pt; color:#666; margin-top:4pt; line-height:1.7; }
+.est-note {
+  font-size: 7.5pt;
+  color: #555;
+  margin-top: 3pt;
+  line-height: 1.7;
+  padding-left: 2pt;
+}
 
-/* ── 입력폼 ── */
-.est-form-box { border:2px solid #1c3d6e; border-radius:8px; padding:16px; margin-top:18px; background:#f7f9ff; }
-.est-form-title { font-weight:700; font-size:11pt; margin-bottom:12px; color:#1c3d6e; }
-.est-form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 24px; }
-.ef-group label { display:block; font-size:9pt; color:#444; margin-bottom:3px; }
-.ef-group input { width:100%; box-sizing:border-box; border:1px solid #ced4da; border-radius:4px; padding:5px 8px; font-size:10pt; }
-.est-form-actions { margin-top:14px; display:flex; gap:8px; justify-content:flex-end; }
-.btn.primary { background:#1c3d6e; color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-size:10pt; }
-.btn { background:#fff; border:1px solid #1c3d6e; color:#1c3d6e; padding:6px 16px; border-radius:4px; cursor:pointer; font-size:10pt; }
+/* ── 입력폼 (화면 전용) ── */
+.est-form-box {
+  border: 2px solid #1c3d6e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 18px;
+  background: #f7f9ff;
+}
+.est-form-title { font-weight: 700; font-size: 11pt; margin-bottom: 12px; color: #1c3d6e; }
+.est-form-section-label { font-size: 9.5pt; font-weight: 700; color: #333; margin-bottom: 6px; }
+.est-form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px 24px; }
+.ef-group label { display: block; font-size: 9pt; color: #444; margin-bottom: 3px; }
+.ef-group input  {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid #ced4da; border-radius: 4px;
+  padding: 5px 8px; font-size: 10pt;
+}
+.est-form-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+.btn.primary {
+  background: #1c3d6e; color: #fff; border: none;
+  padding: 6px 18px; border-radius: 4px; cursor: pointer; font-size: 10pt;
+}
+.btn { background: #fff; border: 1px solid #1c3d6e; color: #1c3d6e;
+  padding: 6px 18px; border-radius: 4px; cursor: pointer; font-size: 10pt;
+}
 
 /* ── 푸터 ── */
-.est-footer { border-top:1.5pt solid #333; padding-top:6pt; margin-top:14pt; display:flex; justify-content:space-between; font-size:8.5pt; }
-.est-footer-main { font-weight:700; }
-.est-footer-note { color:#888; }
+.est-doc-footer {
+  border-top: 2pt solid #1c3d6e;
+  padding-top: 5pt;
+  margin-top: 10pt;
+  display: flex;
+  justify-content: space-between;
+  font-size: 8.5pt;
+}
+.est-footer-main { font-weight: 700; color: #1c3d6e; }
+.est-footer-note { color: #888; }
 
+/* ── 인쇄 ── */
 @media print {
-  .est-form-box { display:none !important; }
-  .est-section-title,
-  .est-compare-table thead th,
+  body { background: #fff !important; }
+  .topbar, .page > .grid, .toast, .est-form-box,
+  .btn, .card, #estimateFormWrap { display: none !important; }
+
+  #estimatePrint { display: block !important; padding: 10mm 12mm; }
+
+  .est-doc-divider,
+  .est-section-bar,
   .est-schedule thead th,
-  .est-header-badge { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .est-compare-table thead th,
+  .est-doc-badge {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .highlight-gold {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .est-compare-table .yield-row-highlight th,
+  .est-compare-table .yield-row-highlight td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  table, tr, td, th { page-break-inside: avoid; }
 }`;
     document.head.appendChild(s);
   })();

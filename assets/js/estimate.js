@@ -23,8 +23,15 @@
   const Estimate = {};
 
   Estimate.renderAndPrint = async function (listing, opts = {}) {
+    const root = document.getElementById("estimatePrint");
+    // [BUG FIX] 인쇄 전에 잠깐 display:block 으로 바꿔서 렌더링 완료 보장
+    if (root) root.style.display = "block";
     await fillEstimate(listing, opts);
+    // 렌더링 사이클 한 번 기다린 후 인쇄
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     window.print();
+    // 인쇄 다이얼로그 닫힌 후 다시 숨김
+    if (root) root.style.display = "";
   };
 
   Estimate.preview = async function (listing, opts = {}) {

@@ -159,35 +159,58 @@
     const today   = new Date();
     const dateStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
 
-    const unitPart   = x.unit || x.ho || "";
-    const titleParts = [x.buildingName, unitPart].filter(Boolean).join(" ");
-    const dealLabel  = x.dealType === "매매" || x.dealType === "분양" ? "분양" : "임대";
-    const headTitle  = titleParts
-      ? `${titleParts} ${dealLabel} 견적서`
-      : "매물 견적서";
+    const unitPart  = x.unit || x.ho || "";
+    // ── 제목: [건물명] [호실] [매매/임대] 견적서
+    const dealLabel = (x.dealType === "매매" || x.dealType === "분양") ? "매매" : "임대";
+    const titleParts = [x.buildingName, unitPart, dealLabel + " 견적서"].filter(Boolean).join(" ");
+    const headTitle  = titleParts || "매물 견적서";
 
-    const exArea  = fmtArea(x.areaExclusiveM2, x.areaExclusivePy);
-    const supArea = fmtArea(x.areaSupplyM2,    x.areaSupplyPy);
+    // ── 면적: "30.25평 (100㎡)" 형식
+    function fmtAreaNew(m2, py) {
+      const p  = py  && Number(py)  > 0 ? `${fmtNum(py)}평`  : "";
+      const m  = m2  && Number(m2)  > 0 ? `(${fmtNum(m2)}㎡)` : "";
+      if (!p && !m) return "—";
+      return [p, m].filter(Boolean).join(" ");
+    }
+    const exArea  = fmtAreaNew(x.areaExclusiveM2, x.areaExclusivePy);
+    const supArea = fmtAreaNew(x.areaSupplyM2,    x.areaSupplyPy);
 
-    // 납입일정 행 - 납부시기 포함
-    const schedRows = c.schedule.map((s, i) => {
-      const dueTimes = ["계약일", "중도금 납부일", "중도금 납부일", "준공 후 잔금지일"];
-      const dueLabel = s.label.trim().startsWith("잔") ? "준공 후 잔금지일" : dueTimes[i] || "";
-      return `<tr>
-        <td class="sched-label">${esc(s.label)}</td>
-        <td class="right">${s.pct}%</td>
-        <td class="right">${manW(s.base)}</td>
-        <td class="right">${s.vat > 0 ? manW(s.vat) : "-"}</td>
-        <td class="right bold">${manW(s.total)}</td>
-        <td class="center sched-due">${esc(dueLabel)}</td>
-      </tr>`;
-    }).join("");
+    // ── 평당가: 매매가격 ÷ 분양면적(평)
+    const supplyPy  = fin(x.areaSupplyPy, 0);
+    const exclPy    = fin(x.areaExclusivePy, 0);
+    const pyBase    = supplyPy > 0 ? supplyPy : exclPy;
+    const salePrice = fin(x.salePriceManwon, 0);
+    const pricePerPy = (pyBase > 0 && salePrice > 0)
+      ? Math.round(salePrice / pyBase)  // 만원 단위
+      : null;
 
-    // 부가세 표기
-    const vatDisplay = c.vatMode === "별도"
-      ? `${c.vatRate}%`
-      : (c.vatMode === "포함" ? "포함" : "해당없음");
-    const vatAmtDisplay = c.vatMode === "별도" ? manW(c.vatAmt) : c.vatMode;
+    // ── 계산값 (compute에서 가져옴)
+    const loanAmt    = c.loanAmt;       // 대출금 (만원)
+    const monthlyInt = c.monthlyInt;    // 월이자 (만원)
+    const annualInt  = round2(loanAmt * c.intRate / 100); // 연이자 (만원)
+    const deposit    = c.deposit;       // 보증금
+    const monthlyRent= c.monthlyRent;   // 월임대료
+
+    // 실투자금
+    const realInvestLoan    = salePrice - loanAmt    - deposit;  // 대출O
+    const realInvestNoLoan  = salePrice              - deposit;  // 대출X
+
+    // 월수익금 = 월임대료 - 월이자 (대출O) / 월임대료 (대출X)
+    const monthProfitLoan   = round2(monthlyRent - monthlyInt);
+    const monthProfitNoLoan = monthlyRent;
+
+    // 년수익금 (이자제외)
+    const yearProfitLoan    = round2(monthlyRent * 12 - annualInt);
+    const yearProfitNoLoan  = round2(monthlyRent * 12);
+
+    // 수익률
+    const yieldLoan   = (realInvestLoan   > 0 && yearProfitLoan   > 0)
+      ? (yearProfitLoan   / realInvestLoan   * 100) : 0;
+    const yieldNoLoan = (realInvestNoLoan > 0 && yearProfitNoLoan > 0)
+      ? (yearProfitNoLoan / realInvestNoLoan * 100) : 0;
+
+    // ── 현업종 표기
+    const bizLabel = x.currentBiz || "";
 
     root.innerHTML = `
 <!-- ═══ 헤더 ═══ -->
@@ -209,148 +232,134 @@ ${plan.url ? `
   <div class="est-caption">${esc(plan.caption)}</div>
 </div>` : ""}
 
-<!-- ═══ ① 개요 ═══ -->
+<!-- ═══ 개요 ═══ -->
 <div class="est-section">
   <div class="est-section-bar">◆ 개요</div>
   <table class="est-table est-overview">
     <tbody>
       <tr>
-        <th class="ov-th-wide">주&nbsp;&nbsp;&nbsp;&nbsp;소</th>
-        <td class="ov-td-addr">${esc(x.address || "-")}</td>
+        <th class="ov-th-wide">건&nbsp;&nbsp;&nbsp;&nbsp;물&nbsp;&nbsp;&nbsp;&nbsp;명</th>
+        <td class="ov-td-addr bold">${esc(x.buildingName || "-")}</td>
         <th class="ov-th-sm">호&nbsp;&nbsp;&nbsp;실</th>
         <td class="ov-td-ho highlight-gold bold">${esc(unitPart || "-")}</td>
       </tr>
       <tr>
-        <th>전용면적</th>
+        <th>전&nbsp;용&nbsp;면&nbsp;적</th>
         <td>${esc(exArea)}</td>
-        <th>분양면적</th>
+        <th>공&nbsp;급&nbsp;면&nbsp;적</th>
         <td>${esc(supArea)}</td>
       </tr>
       <tr>
-        <th>분&nbsp;&nbsp;양&nbsp;&nbsp;가</th>
-        <td class="highlight-gold bold">${manW(c.basePrice)}</td>
-        <th>부가세(건물분) <span class="vat-rate-label">${vatDisplay}</span></th>
-        <td>${vatAmtDisplay}</td>
-      </tr>
-      <tr>
-        <th>총&nbsp;&nbsp;분&nbsp;&nbsp;양&nbsp;&nbsp;가</th>
-        <td class="highlight-gold bold">${manW(c.totalPrice)}</td>
-        <th>평&nbsp;&nbsp;당&nbsp;&nbsp;가</th>
+        <th>매&nbsp;&nbsp;매&nbsp;&nbsp;가&nbsp;&nbsp;격</th>
+        <td class="highlight-gold bold">${manW(salePrice)}</td>
+        <th>평&nbsp;&nbsp;&nbsp;&nbsp;당&nbsp;&nbsp;&nbsp;&nbsp;가</th>
         <td class="bold">
-          ${c.pricePerPy !== null
-            ? `${Math.round(c.pricePerPy).toLocaleString("ko-KR")}원`
-              + (c.supplyPy > 0 ? `<span class="est-note-inline"> (분양 ${c.supplyPy}평 기준)</span>` : "")
+          ${pricePerPy !== null
+            ? `${Math.round(pricePerPy * 10000).toLocaleString("ko-KR")}원`
+              + (supplyPy > 0
+                ? `<span class="est-note-inline"> (공급 ${supplyPy}평 기준)</span>`
+                : exclPy > 0
+                  ? `<span class="est-note-inline"> (전용 ${exclPy}평 기준)</span>`
+                  : "")
             : "-"}
         </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- ═══ ② 자금 및 납입일정 ═══ -->
-<div class="est-section">
-  <div class="est-section-bar">◆ 자금 및 납입일정 <span class="est-unit-label">[단위: 원]</span></div>
-  <table class="est-table est-schedule">
-    <thead>
+      </tr>${bizLabel ? `
       <tr>
-        <th class="sched-th-label">구&nbsp;분</th>
-        <th class="right sched-th-pct">비&nbsp;율</th>
-        <th class="right">분&nbsp;양&nbsp;가</th>
-        <th class="right">부&nbsp;가&nbsp;세</th>
-        <th class="right">합&nbsp;&nbsp;&nbsp;계</th>
-        <th class="center sched-th-due">납&nbsp;부&nbsp;시&nbsp;기</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${schedRows}
-    </tbody>
-    <tfoot>
-      <tr class="foot-total">
-        <td class="sched-label">합&nbsp;&nbsp;&nbsp;계</td>
-        <td class="right">100%</td>
-        <td class="right">${manW(c.basePrice)}</td>
-        <td class="right">${c.vatAmt > 0 ? manW(c.vatAmt) : "-"}</td>
-        <td class="right bold">${manW(c.totalPrice)}</td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
-</div>
-
-<!-- ═══ ③ 기타비용 ═══ -->
-<div class="est-section">
-  <div class="est-section-bar">◆ 기타비용</div>
-  <table class="est-table est-etc">
-    <tbody>
-      <tr>
-        <th>취득세(분양가 ${c.acqTaxRate.toFixed(1)}%) 및 등기비용</th>
-        <td class="right bold">${c.regRate > 0 ? (c.acqTaxRate + c.regRate).toFixed(1) + "%" : c.acqTaxRate.toFixed(1) + "%"}</td>
-        <td class="right bold">${manW(c.etcTotal)}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="est-note">※ VAT 제외 순분양가 기준. 취득세율은 건물 용도·면적에 따라 달라질 수 있습니다.</div>
-</div>
-
-<!-- ═══ ④ 대출 ═══ -->
-<div class="est-section">
-  <div class="est-section-bar">◆ 대출</div>
-  <table class="est-table est-loan">
-    <tbody>
-      <tr>
-        <th>대&nbsp;출&nbsp;액 &nbsp;${c.ltvPct.toFixed(0)}%</th>
-        <td class="right bold highlight-gold">${c.loanAmt > 0 ? manW(c.loanAmt) : "미대출"}</td>
-        <th>월&nbsp;&nbsp;이&nbsp;&nbsp;자 &nbsp;${c.intRate.toFixed(1)}%</th>
-        <td class="right bold">${c.monthlyInt > 0 ? manW(c.monthlyInt) : "-"}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="est-note">※ 대출 기준: VAT 제외 순분양가 × ${c.ltvPct.toFixed(0)}%</div>
-</div>
-
-<!-- ═══ ⑤ 임대(예상) ═══ -->
-<div class="est-section">
-  <div class="est-section-bar">◆ 임대(예상) <span class="est-unit-label">[VAT별도]</span></div>
-  <table class="est-table est-rent">
-    <tbody>
-      <tr>
-        <th>보&nbsp;&nbsp;증&nbsp;&nbsp;금</th>
-        <td class="right highlight-gold bold">${man0W(c.deposit)}</td>
-        <th>월&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;세</th>
-        <td class="right highlight-gold bold">${c.monthlyRent > 0 ? manW(c.monthlyRent) : "-"}</td>
-      </tr>
+        <th>현&nbsp;&nbsp;&nbsp;&nbsp;업&nbsp;&nbsp;&nbsp;&nbsp;종</th>
+        <td colspan="3">${esc(bizLabel)}</td>
+      </tr>` : ""}
     </tbody>
   </table>
 </div>
 
-<!-- ═══ ⑥ 투자금 & 수익률 ═══ -->
+<!-- ═══ 수익분석 (대출O / 대출X 비교) ═══ -->
 <div class="est-section">
-  <div class="est-section-bar">◆ 투자금 &amp; 수익률 <span class="est-unit-label">[VAT, 기타비용 미포함]</span></div>
-  <table class="est-compare-table">
+  <div class="est-section-bar">◆ 수익 분석 <span class="est-unit-label">[단위: 원]</span></div>
+  <table class="est-compare-table est-sale-compare">
     <thead>
       <tr>
         <th class="cmp-th-label"></th>
-        <th class="center cmp-th-col">대출시투자자금<br><span class="cmp-sub">(분양가−대출금−보증금)</span></th>
-        <th class="center cmp-th-col">미대출시<br><span class="cmp-sub">(분양가−보증금)</span></th>
+        <th class="center cmp-th-col cmp-loan">대출 (O)</th>
+        <th class="center cmp-th-col cmp-noloan">대출 (X)</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <th>투 자 금 액</th>
-        <td class="right highlight-gold bold">${manW(c.investWithLoan)}</td>
-        <td class="right bold">${manW(c.investWithoutLoan)}</td>
+      <tr class="row-saleprice">
+        <th>매 매 가 격</th>
+        <td class="right highlight-red bold">${manW(salePrice)}</td>
+        <td class="right bold">${manW(salePrice)}</td>
       </tr>
-      <tr class="yield-row-highlight">
-        <th>수&nbsp;&nbsp;익&nbsp;&nbsp;률</th>
-        <td class="right big-yield">${esc(c.ltvPct > 0 ? fmtPct(c.yieldWithLoan) : "-")}</td>
-        <td class="right big-yield">${esc(fmtPct(c.yieldWithoutLoan))}</td>
+      <tr>
+        <th>대출금액 (${c.ltvPct.toFixed(0)}%)</th>
+        <td class="right">${manW(loanAmt)}</td>
+        <td class="right cmp-dash">—</td>
+      </tr>
+      <tr>
+        <th>이&nbsp;&nbsp;율&nbsp;&nbsp;(연)</th>
+        <td class="right">${c.intRate.toFixed(2)}%</td>
+        <td class="right cmp-dash">—</td>
+      </tr>
+      <tr>
+        <th>이&nbsp;&nbsp;자&nbsp;&nbsp;(연)</th>
+        <td class="right">${manW(annualInt)}</td>
+        <td class="right cmp-dash">—</td>
+      </tr>
+      <tr>
+        <th>월&nbsp;&nbsp;&nbsp;&nbsp;이&nbsp;&nbsp;&nbsp;&nbsp;자</th>
+        <td class="right">${manW(monthlyInt)}</td>
+        <td class="right cmp-dash">—</td>
+      </tr>
+      <tr>
+        <th>보&nbsp;&nbsp;&nbsp;&nbsp;증&nbsp;&nbsp;&nbsp;&nbsp;금</th>
+        <td class="right">${man0W(deposit)}</td>
+        <td class="right">${man0W(deposit)}</td>
+      </tr>
+      <tr>
+        <th>월&nbsp;&nbsp;임&nbsp;&nbsp;대&nbsp;&nbsp;료</th>
+        <td class="right highlight-gold bold">${manW(monthlyRent)}</td>
+        <td class="right bold">${manW(monthlyRent)}</td>
+      </tr>
+      <tr class="row-invest">
+        <th>실&nbsp;&nbsp;투&nbsp;&nbsp;자&nbsp;&nbsp;금</th>
+        <td class="right bold">${manW(realInvestLoan)}</td>
+        <td class="right bold">${manW(realInvestNoLoan)}</td>
+      </tr>
+      <tr>
+        <th>월&nbsp;&nbsp;수&nbsp;&nbsp;익&nbsp;&nbsp;금</th>
+        <td class="right">${manW(monthProfitLoan)}</td>
+        <td class="right">${manW(monthProfitNoLoan)}</td>
+      </tr>
+      <tr>
+        <th>년수익금 (이자제외)</th>
+        <td class="right">${manW(yearProfitLoan)}</td>
+        <td class="right">${manW(yearProfitNoLoan)}</td>
+      </tr>
+      <tr class="row-yield">
+        <th>수&nbsp;&nbsp;&nbsp;&nbsp;익&nbsp;&nbsp;&nbsp;&nbsp;률</th>
+        <td class="right big-yield highlight-red">${esc(fmtPct(yieldLoan))}</td>
+        <td class="right big-yield">${esc(fmtPct(yieldNoLoan))}</td>
       </tr>
     </tbody>
   </table>
   <div class="est-note">
-    ※ 수익률(대출시) = (월세 − 월이자) × 12 ÷ 투자금 × 100<br>
-    ※ 수익률(미대출시) = 월세 × 12 ÷ 투자금 × 100 &nbsp;|&nbsp; 관리비 미포함
+    ※ 실투자금(대출O) = 매매가격 − 대출금 − 보증금 &nbsp;|&nbsp; 실투자금(대출X) = 매매가격 − 보증금<br>
+    ※ 수익률 = 년수익금 ÷ 실투자금 × 100 &nbsp;|&nbsp; 관리비 미포함
   </div>
+</div>
+
+<!-- ═══ 기타비용 ═══ -->
+<div class="est-section">
+  <div class="est-section-bar">◆ 기타비용 (취득세 및 등기)</div>
+  <table class="est-table est-etc">
+    <tbody>
+      <tr>
+        <th>취득세 (${c.acqTaxRate.toFixed(1)}%) 및 등기비용</th>
+        <td class="right">${(c.acqTaxRate + c.regRate).toFixed(1)}%</td>
+        <td class="right bold">${manW(c.etcTotal)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="est-note">※ 취득세율은 건물 용도·면적·취득가액에 따라 달라질 수 있습니다.</div>
 </div>
 
 <!-- ═══ 푸터 ═══ -->
@@ -637,6 +646,40 @@ ${plan.url ? `
   color: #1864ab;
   text-align: right;
 }
+
+/* ── 매매 견적서 수익분석 테이블 전용 ── */
+.est-sale-compare .cmp-loan   { background: #e8f0fb; color: #1a2d4e; }
+.est-sale-compare .cmp-noloan { background: #f5f5f5; color: #333; }
+.est-sale-compare .cmp-dash   { color: #aaa; text-align: center; }
+.est-sale-compare .row-saleprice th,
+.est-sale-compare .row-saleprice td { background: #f4f6fb; }
+.est-sale-compare .row-invest th,
+.est-sale-compare .row-invest td   {
+  background: #1c3d6e;
+  color: #fff;
+  font-weight: 700;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.est-sale-compare .row-yield th,
+.est-sale-compare .row-yield td    {
+  background: #b71c1c;
+  color: #fff;
+  font-weight: 900;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.est-sale-compare .row-yield .big-yield {
+  font-size: 15pt;
+  color: #fff;
+  text-align: right;
+}
+.est-sale-compare .highlight-red {
+  background: transparent;
+  color: #c0392b;
+  font-weight: 700;
+}
+.est-sale-compare .row-saleprice .highlight-red { color: #c0392b; }
 
 /* ── 도면 ── */
 .est-figure { text-align: center; margin-bottom: 8pt; }

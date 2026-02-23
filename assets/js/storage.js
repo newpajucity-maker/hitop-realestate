@@ -8,6 +8,25 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
 (function () {
   "use strict";
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // [BUG FIX] 플레이스홀더 감지 → localStorage 모드 자동 전환
+  // SUPABASE_URL 또는 KEY 에 "YOUR_" 가 포함되면 로컬 모드로 동작
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const USE_LOCAL = (
+    !SUPABASE_URL || SUPABASE_URL.includes("YOUR_") ||
+    !SUPABASE_KEY || SUPABASE_KEY.includes("YOUR_")
+  );
+
+  if (USE_LOCAL) {
+    console.warn(
+      "[Storage] ⚠️ Supabase 설정이 플레이스홀더 상태입니다.\n" +
+      "→ localStorage 모드로 자동 전환합니다.\n" +
+      "→ 실제 배포 시 SUPABASE_URL / SUPABASE_KEY 를 수정해주세요."
+    );
+  } else {
+    console.info("[Storage] ✅ Supabase 모드로 동작합니다. URL:", SUPABASE_URL);
+  }
+
   const Storage = {};
 
   // ── 테이블 매핑 ────────────────────────────────────────────────────
@@ -62,6 +81,26 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
     return row.data || row;
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // [BUG FIX] localStorage 직접 읽기/쓰기 헬퍼 (로컬 모드 전용)
+  // key="buildings" 그대로 저장 (sb_cache_ 접두사 없이)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  function lsGet(key) {
+    const raw = localStorage.getItem(key);
+    const result = Storage.safeJsonParse(raw, []);
+    console.log("[Storage][localStorage] getItem:", key, "→", result.length, "건");
+    return result;
+  }
+  function lsSet(key, arr) {
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+      console.log("[Storage][localStorage] setItem 완료:", key, "→", arr.length, "건 저장됨");
+    } catch (e) {
+      console.error("[Storage][localStorage] setItem 실패:", key, e);
+      throw e;
+    }
+  }
+
   // ── 공통 Supabase REST 호출 ────────────────────────────────────────
   async function sbFetch(path, options = {}) {
     const url = SUPABASE_URL + "/rest/v1/" + path;
@@ -89,6 +128,12 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
 
   // ── getArray: 테이블 전체 읽기 ────────────────────────────────────
   Storage.getArray = async function (key) {
+    // [BUG FIX] 로컬 모드: localStorage에서 직접 읽기 (key 그대로)
+    if (USE_LOCAL) {
+      const result = lsGet(key);
+      return result;
+    }
+
     const table = TABLE[key];
     if (!table) {
       return Storage.safeJsonParse(localStorage.getItem(key), []);
@@ -100,6 +145,7 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
       const result = (rows || []).map(fromRow).filter(x => x && typeof x === "object");
       // 오프라인 폴백용 로컬 캐시 갱신
       localStorage.setItem("sb_cache_" + key, JSON.stringify(result));
+      console.log("[Storage][getArray][supabase]", key, "→", result.length, "건");
       return result;
     } catch (e) {
       console.error("[Storage] getArray 실패 (" + key + "):", e);
@@ -110,12 +156,24 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
 
   // ── setArray: 배열 전체 교체 ──────────────────────────────────────
   Storage.setArray = async function (key, arr) {
+    // [BUG FIX] 로컬 모드: localStorage에 직접 저장 (key="buildings" 그대로)
+    if (USE_LOCAL) {
+      try {
+        lsSet(key, arr);
+      } catch (e) {
+        console.error("[Storage][setArray][local] 저장 실패:", key, e);
+        throw e;
+      }
+      return;
+    }
+
     const table = TABLE[key];
     if (!table) {
       localStorage.setItem(key, JSON.stringify(arr));
       return;
     }
     try {
+      console.log("[Storage][setArray][supabase] 시작:", key, "건수:", arr.length);
       // 1. 기존 전체 삭제
       await sbFetch(table + "?id=neq.__PLACEHOLDER__", {
         method: "DELETE",
@@ -133,6 +191,7 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
       }
       // 캐시 갱신
       localStorage.setItem("sb_cache_" + key, JSON.stringify(arr));
+      console.log("[Storage][setArray][supabase] 저장 완료:", key);
     } catch (e) {
       console.error("[Storage] setArray 실패 (" + key + "):", e);
       alert(
@@ -146,6 +205,15 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
 
   // ── upsertOne: 단건 저장 (매물 1건 저장 시 전체 교체보다 효율적) ──
   Storage.upsertOne = async function (key, item) {
+    // [BUG FIX] 로컬 모드
+    if (USE_LOCAL) {
+      const arr = lsGet(key);
+      const idx = arr.findIndex(x => x.id === item.id);
+      if (idx >= 0) arr[idx] = item; else arr.unshift(item);
+      lsSet(key, arr);
+      return;
+    }
+
     const table = TABLE[key];
     if (!table) {
       const arr = Storage.safeJsonParse(localStorage.getItem(key), []);
@@ -176,6 +244,13 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
 
   // ── deleteOne: 단건 삭제 ──────────────────────────────────────────
   Storage.deleteOne = async function (key, id) {
+    // [BUG FIX] 로컬 모드
+    if (USE_LOCAL) {
+      const arr = lsGet(key).filter(x => x.id !== id);
+      lsSet(key, arr);
+      return;
+    }
+
     const table = TABLE[key];
     if (!table) {
       const arr = Storage.safeJsonParse(localStorage.getItem(key), [])
@@ -217,6 +292,9 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // 현재 모드 노출 (디버깅용)
+  Storage.isLocalMode = USE_LOCAL;
 
   // 클라우드 전환 후 로컬 마이그레이션 불필요 → 빈 함수 유지 (호환성)
   Storage.migrateAll = function () {};

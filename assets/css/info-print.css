@@ -7,7 +7,7 @@
 
   @page {
     size: A4 portrait;
-    margin: 14mm 20mm 14mm 20mm;
+    margin: 8mm 15mm 8mm 15mm;
   }
 
   body {
@@ -35,7 +35,7 @@
     text-align: right;
     font-size: 8pt;
     color: #888;
-    margin-bottom: 5pt;
+    margin-bottom: 3pt;
   }
 
   /* ── 문서 제목 ── */
@@ -45,16 +45,16 @@
     font-weight: 900;
     letter-spacing: 5px;
     color: #1a2b50;
-    padding: 7pt 0;
+    padding: 5pt 0;
     border-top: 3pt solid #1a2b50;
     border-bottom: 2pt solid #c8b14a;
-    margin-bottom: 10pt;
+    margin-bottom: 7pt;
   }
 
   /* ── 핵심 요약 박스 ── */
   .ip-summary {
     border: 2pt solid #1a2b50;
-    margin-bottom: 10pt;
+    margin-bottom: 7pt;
     page-break-inside: avoid;
   }
   .ip-summary-title {
@@ -135,7 +135,7 @@
     color: #1a2b50;
     border-left: 4pt solid #c8b14a;
     padding-left: 7pt;
-    margin: 10pt 0 4pt;
+    margin: 7pt 0 3pt;
     letter-spacing: 0.8px;
   }
 
@@ -231,8 +231,8 @@
 
   /* ── 하단 푸터 ── */
   .ip-footer {
-    margin-top: 10pt;
-    padding-top: 6pt;
+    margin-top: 6pt;
+    padding-top: 5pt;
     border-top: 2pt solid #1a2b50;
     display: flex;
     justify-content: space-between;

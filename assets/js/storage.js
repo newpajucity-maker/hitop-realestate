@@ -174,12 +174,35 @@ const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
     }
     try {
       console.log("[Storage][setArray][supabase] 시작:", key, "건수:", arr.length);
-      // 1. 기존 전체 삭제
-      await sbFetch(table + "?id=neq.__PLACEHOLDER__", {
-        method: "DELETE",
-        prefer: "return=minimal",
-      });
-      // 2. 새 데이터 배치 upsert (100건씩)
+
+      // 1. 새 데이터 id 목록 수집
+      const newIds = arr.map(item => item.id).filter(Boolean);
+
+      // 2. 기존 데이터에서 새 목록에 없는 행만 삭제 (안전한 선택적 삭제)
+      if (newIds.length > 0) {
+        // 현재 DB에 있는 id 목록 조회
+        const existingRows = await sbFetch(table + "?select=id&limit=10000");
+        const existingIds  = (existingRows || []).map(r => r.id).filter(Boolean);
+        const toDelete     = existingIds.filter(id => !newIds.includes(id));
+        // 삭제 대상이 있을 때만 DELETE (최대 100건씩 분할)
+        const DEL_BATCH = 100;
+        for (let i = 0; i < toDelete.length; i += DEL_BATCH) {
+          const chunk = toDelete.slice(i, i + DEL_BATCH);
+          const idList = chunk.map(id => encodeURIComponent(id)).join(",");
+          await sbFetch(table + "?id=in.(" + idList + ")", {
+            method: "DELETE",
+            prefer: "return=minimal",
+          });
+        }
+      } else {
+        // arr가 비어 있으면 전체 삭제 (명시적 요청으로만 도달)
+        await sbFetch(table + "?id=not.is.null", {
+          method: "DELETE",
+          prefer: "return=minimal",
+        });
+      }
+
+      // 3. 새 데이터 배치 upsert (100건씩)
       const BATCH = 100;
       for (let i = 0; i < arr.length; i += BATCH) {
         const chunk = arr.slice(i, i + BATCH).map(item => toRow(table, item));

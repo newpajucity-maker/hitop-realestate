@@ -33,6 +33,55 @@
   const elEmpty     = $("empty");
   const elSearch    = $("searchInput");
   const elToast     = $("toast");
+  const elPager     = $("pager");
+  const elPageInfo  = $("pageInfo");
+  const elBtnPrev   = $("btnPrevPage");
+  const elBtnNext   = $("btnNextPage");
+
+  const PAGE_SIZE = 8;
+  let currentPage = 1;
+  let pagedArr    = [];  // 현재 탭 전체 정렬된 배열
+
+  // 페이지 렌더
+  function renderPage(page) {
+    currentPage = page;
+    const total = pagedArr.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage < 1) currentPage = 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const slice = pagedArr.slice(start, start + PAGE_SIZE);
+
+    elList.innerHTML = "";
+    elEmpty.style.display = total ? "none" : "block";
+
+    slice.forEach(item => {
+      const div = document.createElement("div"); div.className = "item";
+      const left = document.createElement("div"); left.className = "meta";
+      const nameDiv = document.createElement("div"); nameDiv.className = "name"; nameDiv.textContent = item.name;
+      const subDiv  = document.createElement("div"); subDiv.className  = "sub";  subDiv.textContent  = item.address || "(주소 미입력)";
+      left.appendChild(nameDiv); left.appendChild(subDiv);
+      const right   = document.createElement("div"); right.className = "item-actions";
+      const editBtn = document.createElement("button"); editBtn.className = "btn mini"; editBtn.textContent = "수정";
+      editBtn.onclick = () => loadToForm(item.id);
+      const delBtn  = document.createElement("button"); delBtn.className  = "btn mini danger"; delBtn.textContent  = "삭제";
+      delBtn.onclick = () => deleteBuilding(item.id);
+      right.appendChild(editBtn); right.appendChild(delBtn);
+      div.appendChild(left); div.appendChild(right);
+      elList.appendChild(div);
+    });
+
+    // 페이저 표시
+    if (elPager) elPager.style.display = totalPages > 1 ? "flex" : "none";
+    if (elPageInfo) elPageInfo.textContent = `${currentPage} / ${totalPages}`;
+    if (elBtnPrev) elBtnPrev.disabled = currentPage <= 1;
+    if (elBtnNext) elBtnNext.disabled = currentPage >= totalPages;
+  }
+
+  // 페이저 버튼
+  if (elBtnPrev) elBtnPrev.addEventListener("click", () => renderPage(currentPage - 1));
+  if (elBtnNext) elBtnNext.addEventListener("click", () => renderPage(currentPage + 1));
 
   function toast(msg) {
     elToast.textContent = msg;
@@ -179,7 +228,7 @@
 
     // [BUG FIX] 저장 성공/실패와 무관하게 renderList 실행 (보호 코드)
     try {
-      await renderList();
+      await renderList(true);
     } catch (e) {
       console.error("[saveBuilding] renderList 실패:", e);
     }
@@ -263,44 +312,25 @@
     toast("삭제 완료");
   }
 
-  async function renderList() {
+  async function renderList(keepPage = false) {
     let arr;
     try {
       arr = await getBuildings();
-      console.log("[renderList] getBuildings 반환:", arr.length, "건", arr);
     } catch (e) {
       console.error("[renderList] getBuildings 실패:", e);
       arr = [];
     }
 
-    if (arr.length === 0) {
-      console.warn("[renderList] arr.length === 0 원인 체크 → localStorage 'buildings' :", localStorage.getItem("buildings"));
-    }
-
     const activeTab  = elTabs.querySelector(".tab.active");
     const activeType = activeTab ? activeTab.dataset.type : "shop";
-    console.log("[renderList] 현재 탭 타입:", activeType);
 
-    arr = arr.filter(x => x.type === activeType).sort((a,b) => (a.name||"").localeCompare((b.name||""),"ko"));
+    // 가나다순 정렬
+    pagedArr = arr
+      .filter(x => x.type === activeType)
+      .sort((a, b) => (a.name || "").localeCompare((b.name || ""), "ko"));
 
-    elList.innerHTML = "";
-    elEmpty.style.display = arr.length ? "none" : "block";
-
-    arr.forEach(item => {
-      const div = document.createElement("div"); div.className = "item";
-      const left = document.createElement("div"); left.className = "meta";
-      const nameDiv = document.createElement("div"); nameDiv.className = "name"; nameDiv.textContent = item.name;
-      const subDiv  = document.createElement("div"); subDiv.className  = "sub";  subDiv.textContent  = item.address || "(주소 미입력)";
-      left.appendChild(nameDiv); left.appendChild(subDiv);
-      const right   = document.createElement("div"); right.className = "item-actions";
-      const editBtn = document.createElement("button"); editBtn.className = "btn mini"; editBtn.textContent = "수정";
-      editBtn.onclick = () => loadToForm(item.id);
-      const delBtn  = document.createElement("button"); delBtn.className  = "btn mini danger"; delBtn.textContent  = "삭제";
-      delBtn.onclick = () => deleteBuilding(item.id);
-      right.appendChild(editBtn); right.appendChild(delBtn);
-      div.appendChild(left); div.appendChild(right);
-      elList.appendChild(div);
-    });
+    if (!keepPage) currentPage = 1;
+    renderPage(currentPage);
   }
 
   // 탭 클릭

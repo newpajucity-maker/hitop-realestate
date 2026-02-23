@@ -26,6 +26,12 @@
         <button class="btn ghost" id="btnGoList">매물목록</button>
         <button class="btn ghost" id="btnBackToHome" style="display:none;">← 목록으로</button>
         <button class="btn primary" id="btnGoRegister">+ 고객 등록</button>
+        <button class="btn btn-sm" id="btnBackup">백업</button>
+        <label class="btn btn-sm" style="cursor:pointer;">
+          복원
+          <input type="file" id="btnRestore" accept=".json" style="display:none;"/>
+        </label>
+        <button class="btn btn-sm" id="btnExcel">엑셀 내보내기</button>
       </div>
     </header>
 
@@ -188,7 +194,9 @@
 
   <div id="toast" class="toast" aria-live="polite"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="assets/js/storage.js"></script>
   <script src="assets/js/customers.js"></script>
+  <script src="assets/js/backup.js"></script>
 </body>
 </html>

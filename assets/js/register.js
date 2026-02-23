@@ -56,7 +56,7 @@
     if (editId) {
       const allListings = await DataUtil.getListings();
       editingListing = allListings.find(x => x.id === editId) || null;
-      if (editingListing) loadListingToForm(editingListing);
+      if (editingListing) await loadListingToForm(editingListing);
       else alert("수정할 매물을 찾을 수 없습니다.");
     }
   }
@@ -405,7 +405,10 @@
 
     if (BUILDING_TYPES.has(currentType)) {
       record.buildingId   = elBuildingSelect.value || "";
-      record.buildingName = elBuildingSelect.selectedOptions[0]?.textContent || "";
+      // buildingId가 실제 선택된 경우에만 텍스트를 사용 (빈 값이면 "" 처리)
+      record.buildingName = record.buildingId
+        ? (elBuildingSelect.selectedOptions[0]?.textContent || "")
+        : "";
       const b = record.buildingId ? await DataUtil.findBuildingById(record.buildingId) : null;
       record.address = b?.address || "";
     } else {
@@ -594,13 +597,13 @@
     return parts.join(" ").trim();
   }
 
-  function loadListingToForm(x) {
+  async function loadListingToForm(x) {
     elTypeSelect.value = x.type; currentType = x.type;
-    syncBuildingUI(); renderDynamicFields(currentType);
+    await syncBuildingUI(); renderDynamicFields(currentType);
     elDealType.value = x.dealType || "매매";
     elStatus.value   = x.status   || "거래가능";
     elIsListed.checked = !!x.isListed;
-    if (BUILDING_TYPES.has(currentType)) { elBuildingSelect.value = x.buildingId || ""; renderBuildingInfo(); }
+    if (BUILDING_TYPES.has(currentType)) { elBuildingSelect.value = x.buildingId || ""; await renderBuildingInfo(); }
     if (elMemoList) {
       elMemoList.innerHTML = "";
       const entries = Array.isArray(x.memoEntries) && x.memoEntries.length

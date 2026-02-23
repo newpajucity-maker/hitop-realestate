@@ -99,6 +99,8 @@
   async function init() {
     elType.value = state.type;
     elListedOnly.checked = state.listedOnly;
+    // fFloorGroup 초기값 state와 동기화 (브라우저 캐시로 인한 불일치 방지)
+    if (elFloorGroup) elFloorGroup.value = state.floorGroup;
 
     // 유형 변경: 건물 옵션도 함께 갱신
     elType.addEventListener("change", async () => {

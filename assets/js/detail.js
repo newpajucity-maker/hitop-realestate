@@ -214,13 +214,15 @@
 
     const man = n => (n && Number(n) ? Number(n).toLocaleString("ko-KR")+"만원" : "");
 
-    // 상가·지식산업센터·공장 매매 시 임대조건 추출
+    // 상가·지식산업센터·공장 매매 시 임대조건 추출 (값 없으면 미입력 표시)
     const isCommercialSale = (x.type === "shop" || x.type === "bizcenter" || x.type === "factory")
                           && (x.dealType === "매매" || x.dealType === "분양");
-    const rentCondition = isCommercialSale && (x.depositManwon || x.rentManwon)
-      ? [x.depositManwon ? "보증금 "+man(x.depositManwon) : "",
-         x.rentManwon    ? "월세 "+man(x.rentManwon)      : ""]
-        .filter(Boolean).join(" / ")
+    const rentCondition = isCommercialSale
+      ? (x.depositManwon || x.rentManwon)
+        ? [x.depositManwon ? "보증금 "+man(x.depositManwon) : "",
+           x.rentManwon    ? "월세 "+man(x.rentManwon)      : ""]
+          .filter(Boolean).join(" / ")
+        : "미입력"
       : "";
 
     // 일반 행 / 강조 행 헬퍼

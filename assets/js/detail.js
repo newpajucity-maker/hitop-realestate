@@ -212,35 +212,52 @@
     const areaForSummary    = exArea   !== "—" ? exArea   : (landArea !== "—" ? landArea : "-");
     const supAreaForSummary = supArea  !== "—" ? supArea  : (bldArea  !== "—" ? bldArea  : "");
 
-    const tr = (k, v) => `<tr><th>${esc(k)}</th><td>${esc(String(v??""))}</td></tr>`;
+    const man = n => (n && Number(n) ? Number(n).toLocaleString("ko-KR")+"만원" : "");
+
+    // 상가·지식산업센터·공장 매매 시 임대조건 추출
+    const isCommercialSale = (x.type === "shop" || x.type === "bizcenter" || x.type === "factory")
+                          && (x.dealType === "매매" || x.dealType === "분양");
+    const rentCondition = isCommercialSale && (x.depositManwon || x.rentManwon)
+      ? [x.depositManwon ? "보증금 "+man(x.depositManwon) : "",
+         x.rentManwon    ? "월세 "+man(x.rentManwon)      : ""]
+        .filter(Boolean).join(" / ")
+      : "";
+
+    // 일반 행 / 강조 행 헬퍼
+    const tr  = (k, v)      => `<tr><th>${esc(k)}</th><td>${esc(String(v??""))}</td></tr>`;
+    const trH = (k, v, cls) => `<tr class="ip-highlight ${cls||""}"><th>${esc(k)}</th><td>${esc(String(v??""))}</td></tr>`;
+
     const trows = [];
     trows.push(tr("위치(주소)", fullAddr));
-    if (x.buildingName) trows.push(tr("건물명",    x.buildingName));
+    if (x.buildingName)  trows.push(tr("건물명",        x.buildingName));
     if (exArea  !== "—") trows.push(tr("전용면적",       exArea));
-    if (supArea !== "—") trows.push(tr("분양(계약)면적",  supArea));
-    if (landArea!== "—") trows.push(tr("토지면적",        landArea));
-    if (bldArea !== "—") trows.push(tr("건축면적",        bldArea));
-    if (x.direction)  trows.push(tr("향",       x.direction));
-    if (x.currentBiz) trows.push(tr("현업종",   x.currentBiz));
-    if (parking)      trows.push(tr("주차대수", parking));
-    if (mainFee)      trows.push(tr("관리비",   mainFee));
-    if (approved)     trows.push(tr("사용승인일", approved));
-    if (x.otType)     trows.push(tr("타입",   x.otType));
-    if (x.rooms)      trows.push(tr("방수",   x.rooms+"R"));
-    if (x.leaseEnd)   trows.push(tr("계약만료일", x.leaseEnd));
-    if (x.vatMode && x.vatMode !== "해당없음") trows.push(tr("부가세", x.vatMode+" "+(x.vatRate||10)+"%"));
-    if (x.landJimo)    trows.push(tr("지목",   x.landJimo));
-    if (x.landUseZone) trows.push(tr("용도지역", x.landUseZone));
-    if (x.coverageRatio) trows.push(tr("건폐율", x.coverageRatio+"%"));
-    if (x.farRatio)    trows.push(tr("용적률", x.farRatio+"%"));
-    if (x.roadAccess)  trows.push(tr("도로접합", x.roadAccess));
-    if (x.clearHeightM) trows.push(tr("층고", x.clearHeightM+"m"));
-    if (x.powerKw)     trows.push(tr("전력", x.powerKw+"kW"));
+    if (supArea !== "—") trows.push(tr("분양(계약)면적", supArea));
+    if (landArea!== "—") trows.push(tr("토지면적",       landArea));
+    if (bldArea !== "—") trows.push(tr("건축면적",       bldArea));
+    if (x.direction)     trows.push(tr("향",             x.direction));
+    if (x.currentBiz)    trows.push(trH("현업종",        x.currentBiz,  "ip-biz"));
+    if (parking)         trows.push(tr("주차대수",        parking));
+    if (approved)        trows.push(tr("사용승인일",      approved));
+    if (x.otType)        trows.push(tr("타입",            x.otType));
+    if (x.rooms)         trows.push(tr("방수",            x.rooms+"R"));
+    if (x.leaseEnd)      trows.push(trH("계약만료일",     x.leaseEnd,    "ip-lease"));
+    if (x.vatMode && x.vatMode !== "해당없음")
+                         trows.push(tr("부가세",          x.vatMode+" "+(x.vatRate||10)+"%"));
+    if (mainFee)         trows.push(tr("관리비",          mainFee));
+    // ── 임대조건: 강조 행 ──
+    if (rentCondition)   trows.push(trH("임대조건(보증금/월세)", rentCondition, "ip-rent"));
+    if (x.landJimo)      trows.push(tr("지목",            x.landJimo));
+    if (x.landUseZone)   trows.push(tr("용도지역",        x.landUseZone));
+    if (x.coverageRatio) trows.push(tr("건폐율",          x.coverageRatio+"%"));
+    if (x.farRatio)      trows.push(tr("용적률",          x.farRatio+"%"));
+    if (x.roadAccess)    trows.push(tr("도로접합",        x.roadAccess));
+    if (x.clearHeightM)  trows.push(tr("층고",            x.clearHeightM+"m"));
+    if (x.powerKw)       trows.push(tr("전력",            x.powerKw+"kW"));
     if (showContact) {
-      if (x.ownerName)  trows.push(tr("소유주",     x.ownerName));
-      if (x.ownerPhone) trows.push(tr("소유주 연락처", x.ownerPhone));
-      if (x.tenantName) trows.push(tr("임차인",     x.tenantName));
-      if (x.tenantPhone)trows.push(tr("임차인 연락처", x.tenantPhone));
+      if (x.ownerName)   trows.push(trH("소유주",         x.ownerName,   "ip-contact"));
+      if (x.ownerPhone)  trows.push(trH("소유주 연락처",  x.ownerPhone,  "ip-contact"));
+      if (x.tenantName)  trows.push(trH("임차인",         x.tenantName,  "ip-contact"));
+      if (x.tenantPhone) trows.push(trH("임차인 연락처",  x.tenantPhone, "ip-contact"));
     }
 
     const dc = x.descChecks || {};
@@ -251,27 +268,54 @@
       {key:"notes",    title:"④ 계약 조건 및 유의사항", txtKey:"notesText"},
     ];
     const descHtml = descDefs
-      .filter(b => dc[b.key] && (dc[b.txtKey]||"").trim())
-      .map(b => `<div class="ip-desc-block"><div class="db-title">${b.title}</div><div class="db-content">${esc((dc[b.txtKey]||"").trim())}</div></div>`)
+      .filter(d => dc[d.key] && (dc[d.txtKey]||"").trim())
+      .map(d => `<div class="ip-desc-block"><div class="db-title">${d.title}</div><div class="db-content">${esc((dc[d.txtKey]||"").trim())}</div></div>`)
       .join("");
+
+    // 핵심 요약 박스 - 임대조건 행 조건부 추가
+    const rentSummaryRow = rentCondition
+      ? `<tr class="ip-rent-row"><th>임 대 조 건</th><td colspan="3">${esc(rentCondition)}</td></tr>`
+      : "";
 
     elInfoPrint.innerHTML = `
       <div class="ip-top-date">출력일: ${dateStr}${showContact?" [자료용]":" [고객용]"}</div>
       <div class="ip-doc-title">부동산 매물 설명서</div>
+
       <div class="ip-summary">
-        <div class="ip-summary-title">핵심 요약</div>
+        <div class="ip-summary-title">◆ 핵심 요약</div>
         <table class="ip-sum-table">
-          <tr><th>건물명</th><td colspan="3"><strong>${esc(x.buildingName||title)}</strong>${unitTxt?"&nbsp;&nbsp;<span class='ip-unit'>"+esc(unitTxt)+"</span>":""}</td></tr>
-          <tr><th>거래형태</th><td>${esc(x.dealType||"-")}</td><th>상태</th><td>${esc(x.status||"-")}</td></tr>
-          <tr><th>전용면적</th><td>${esc(areaForSummary)}</td><th>분양면적</th><td>${esc(supAreaForSummary||"-")}</td></tr>
-          <tr class="ip-price-row"><th>금액</th><td colspan="3">${esc(price)}</td></tr>
+          <tr>
+            <th>건 물 명</th>
+            <td colspan="3">
+              <strong>${esc(x.buildingName||title)}</strong>
+              ${unitTxt ? "&nbsp;&nbsp;<span class='ip-unit'>"+esc(unitTxt)+"</span>" : ""}
+            </td>
+          </tr>
+          <tr>
+            <th>거래형태</th><td>${esc(x.dealType||"-")}</td>
+            <th>상&nbsp;&nbsp;&nbsp;&nbsp;태</th><td>${esc(x.status||"-")}</td>
+          </tr>
+          <tr>
+            <th>전용면적</th><td>${esc(areaForSummary)}</td>
+            <th>분양면적</th><td>${esc(supAreaForSummary||"-")}</td>
+          </tr>
+          <tr class="ip-price-row">
+            <th>매 매 가 격</th>
+            <td colspan="3">${esc(price)}</td>
+          </tr>
+          ${rentSummaryRow}
         </table>
       </div>
-      <div class="ip-section-title">상세 정보</div>
+
+      <div class="ip-section-title">◆ 상세 정보</div>
       <table class="ip-table"><tbody>${trows.join("")}</tbody></table>
-      ${descHtml?'<div class="ip-section-title" style="margin-top:10pt;">매물 설명</div>'+descHtml:""}
-      ${memoText?'<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">'+esc(memoText)+"</div></div>":""}
-      <div class="ip-write-memo"><div class="ip-write-memo-title">메 모</div><div class="ip-write-memo-body"></div></div>
+
+      ${descHtml ? '<div class="ip-section-title" style="margin-top:10pt;">◆ 매물 설명</div>'+descHtml : ""}
+      ${memoText ? '<div class="ip-memo-block"><div class="db-title">메모 / 특이사항</div><div class="db-content">'+esc(memoText)+"</div></div>" : ""}
+      <div class="ip-write-memo">
+        <div class="ip-write-memo-title">메 &nbsp;&nbsp; 모</div>
+        <div class="ip-write-memo-body"></div>
+      </div>
       <div class="ip-footer">
         <div class="ip-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
         <div class="ip-footer-note">본 설명서는 내부 참고용이며 공식 계약서가 아닙니다.</div>

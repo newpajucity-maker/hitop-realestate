@@ -90,6 +90,17 @@
     const p = priceText(x);
     if (p) addInfo("가격", p);
 
+    // 상가·지식산업센터·공장 매매 시 임대조건 항상 표시
+    const isCommSale = (x.type === "shop" || x.type === "bizcenter" || x.type === "factory")
+                    && (x.dealType === "매매" || x.dealType === "분양");
+    if (isCommSale) {
+      const man = n => (n && Number(n) ? Number(n).toLocaleString("ko-KR")+"만원" : "");
+      const rc = [x.depositManwon ? "보증금 "+man(x.depositManwon) : "",
+                  x.rentManwon    ? "월세 "+man(x.rentManwon)      : ""]
+                 .filter(Boolean).join(" / ") || "미입력";
+      addInfo("임대조건(보증금/월세)", rc);
+    }
+
     if (x.ownerName)  addInfo("소유주",  `${x.ownerName}${x.ownerPhone?" ("+x.ownerPhone+")":""}`);
     if (x.tenantName) addInfo("임차인",  `${x.tenantName}${x.tenantPhone?" ("+x.tenantPhone+")":""}`);
     if (x.leaseEnd)   addInfo("계약만료", x.leaseEnd);

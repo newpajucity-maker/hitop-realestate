@@ -15,7 +15,8 @@
   const elTableBody        = $("tableBody");
   const elCount            = $("resultCount");
   const elBtnPrint         = $("btnPrint");
-  const elBtnPrintSelected = $("btnPrintSelected");
+  const elBtnPrintSelected  = $("btnPrintSelected");
+  const elBtnDeleteSelected = $("btnDeleteSelected");
   const elBtnPrintOne      = $("btnPrintOne");
   const elBtnNew           = $("btnNew");
   const elBtnBuildings     = $("btnBuildings");
@@ -145,6 +146,31 @@
         await printWithRows(rows);
       });
     }
+
+    // ── 선택 삭제 ─────────────────────────────────────────────
+    if (elBtnDeleteSelected) {
+      elBtnDeleteSelected.addEventListener("click", async () => {
+        const sel = Array.from(state.selected);
+        if (!sel.length) return alert("선택된 매물이 없습니다.");
+        if (!confirm(`선택한 매물 ${sel.length}건을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+        showLoading();
+        try {
+          for (const id of sel) {
+            await DataUtil.deleteListing(id);
+          }
+          state.selected.clear();
+          if (elBtnDeleteSelected) elBtnDeleteSelected.disabled = true;
+          if (elBtnPrintOne)       elBtnPrintOne.disabled = true;
+          if (elBtnDeleteSelected) elBtnDeleteSelected.disabled = true;
+          await renderTable();
+          alert(`${sel.length}건 삭제 완료`);
+        } catch (e) {
+          alert("삭제 실패: " + e.message);
+        } finally {
+          hideLoading();
+        }
+      });
+    }
     if (elBtnPrintOne) {
       elBtnPrintOne.addEventListener("click", () => {
         const sel = Array.from(state.selected);
@@ -169,7 +195,8 @@
         const id = t.getAttribute("data-id");
         if (!id) return;
         if (t.checked) state.selected.add(id); else state.selected.delete(id);
-        if (elBtnPrintOne) elBtnPrintOne.disabled = state.selected.size !== 1;
+        if (elBtnPrintOne)       elBtnPrintOne.disabled       = state.selected.size !== 1;
+        if (elBtnDeleteSelected) elBtnDeleteSelected.disabled = state.selected.size === 0;
         syncHeaderCheckAll();
       }
       if (t.id === "checkAll") e.stopPropagation();

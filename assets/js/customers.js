@@ -54,7 +54,7 @@
 
     if (view === "home") {
       clearRegisterForm();
-      await renderHomeList();
+      await renderHomeList(true);
     }
     if (view === "detail") {
       exitEditMode();
@@ -66,57 +66,76 @@
   async function getArr() { return await StorageUtil.getArray(KEY); }
   async function setArr(a){ await StorageUtil.setArray(KEY, a); }
 
+  // ── 고객 페이지네이션 ──
+  const CUST_PAGE_SIZE = 8;
+  let custPage = 1;
+  let custArr  = [];
+
+  function renderCustPage(page) {
+    custPage = page;
+    const total = custArr.length;
+    const totalPages = Math.max(1, Math.ceil(total / CUST_PAGE_SIZE));
+    if (custPage < 1) custPage = 1;
+    if (custPage > totalPages) custPage = totalPages;
+
+    const start = (custPage - 1) * CUST_PAGE_SIZE;
+    const slice = custArr.slice(start, start + CUST_PAGE_SIZE);
+
+    $("totalCount").textContent = total;
+    const wrap = $("customerList");
+    wrap.innerHTML = "";
+    $("listEmpty").style.display = total ? "none" : "block";
+
+    // 가나다순 → 날짜별 그룹핑 없이 카드 직접 렌더
+    slice.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "c-card";
+      card.innerHTML = `
+        <div class="c-card-left">
+          <div class="c-role-badge">${esc(c.role || "-")}</div>
+          <div class="c-name">${esc(c.name)}</div>
+          <div class="c-phone">${esc(c.phone || "-")}</div>
+        </div>
+        <div class="c-card-right">
+          ${c.tag  ? `<div class="c-tag">${esc(c.tag)}</div>`   : ""}
+          ${c.memo ? `<div class="c-memo">${esc(c.memo)}</div>` : ""}
+          <div class="c-note-count">${noteCountText(c)}</div>
+        </div>
+        <div class="c-arrow">›</div>
+      `;
+      card.onclick = () => { currentId = c.id; showView("detail"); };
+      wrap.appendChild(card);
+    });
+
+    const pager    = $("custPager");
+    const pageInfo = $("custPageInfo");
+    const btnPrev  = $("custBtnPrev");
+    const btnNext  = $("custBtnNext");
+    if (pager)    pager.style.display    = totalPages > 1 ? "flex" : "none";
+    if (pageInfo) pageInfo.textContent   = `${custPage} / ${totalPages}`;
+    if (btnPrev)  btnPrev.disabled       = custPage <= 1;
+    if (btnNext)  btnNext.disabled       = custPage >= totalPages;
+  }
+
+  const _custBtnPrev = $("custBtnPrev");
+  const _custBtnNext = $("custBtnNext");
+  if (_custBtnPrev) _custBtnPrev.addEventListener("click", () => renderCustPage(custPage - 1));
+  if (_custBtnNext) _custBtnNext.addEventListener("click", () => renderCustPage(custPage + 1));
+
   // ── 홈 목록 렌더 ──
-  async function renderHomeList() {
+  async function renderHomeList(keepPage = false) {
     const q = ($("q").value || "").trim().toLowerCase();
     let arr = (await getArr()).slice().sort((a, b) =>
-      String(b.createdAt).localeCompare(String(a.createdAt))
+      (a.name || "").localeCompare((b.name || ""), "ko")
     );
     if (q) {
       arr = arr.filter(x =>
         [x.name, x.phone, x.role, x.tag, x.memo].join(" ").toLowerCase().includes(q)
       );
     }
-
-    $("totalCount").textContent = arr.length;
-    const wrap = $("customerList");
-    wrap.innerHTML = "";
-    $("listEmpty").style.display = arr.length ? "none" : "block";
-
-    // 날짜별 그룹핑
-    const groups = {};
-    arr.forEach(c => {
-      const dateKey = c.createdAt ? c.createdAt.slice(0, 10) : "날짜 없음";
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(c);
-    });
-
-    Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(dateKey => {
-      const header = document.createElement("div");
-      header.className = "date-header";
-      header.textContent = formatDateLabel(dateKey);
-      wrap.appendChild(header);
-
-      groups[dateKey].forEach(c => {
-        const card = document.createElement("div");
-        card.className = "c-card";
-        card.innerHTML = `
-          <div class="c-card-left">
-            <div class="c-role-badge">${esc(c.role || "-")}</div>
-            <div class="c-name">${esc(c.name)}</div>
-            <div class="c-phone">${esc(c.phone || "-")}</div>
-          </div>
-          <div class="c-card-right">
-            ${c.tag  ? `<div class="c-tag">${esc(c.tag)}</div>`   : ""}
-            ${c.memo ? `<div class="c-memo">${esc(c.memo)}</div>` : ""}
-            <div class="c-note-count">${noteCountText(c)}</div>
-          </div>
-          <div class="c-arrow">›</div>
-        `;
-        card.onclick = () => { currentId = c.id; showView("detail"); };
-        wrap.appendChild(card);
-      });
-    });
+    custArr = arr;
+    if (!keepPage) custPage = 1;
+    renderCustPage(custPage);
   }
 
   function noteCountText(c) {

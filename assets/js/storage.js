@@ -2,8 +2,8 @@
 // ── Supabase REST 어댑터 ──────────────────────────────────────────────
 // ※ 아래 두 값을 Supabase 대시보드 → Settings → API 에서 복사해 붙여넣으세요.
 
-const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co"; // ← 여기 수정
-const SUPABASE_KEY = "YOUR_ANON_PUBLIC_KEY";                // ← 여기 수정
+const SUPABASE_URL = "https://vrtxhfgkyttonpnvgwdc.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZydHhoZmdreXR0b25wbnZnd2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NTgyNzIsImV4cCI6MjA4NzMzNDI3Mn0.Fu9h0pGJGAiiWPersBMByD78j9cmdLdKLNRqkj_Q_Uk";
 
 (function () {
   "use strict";

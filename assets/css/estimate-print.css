@@ -115,7 +115,7 @@
 
   #estimatePrint {
     display: block !important;
-    padding: 10mm 12mm !important;
+    padding: 0 !important;
   }
 
   /* 색상 강제 출력 */
@@ -125,7 +125,7 @@
   }
 
   @page {
-    margin: 0;
+    margin: 14mm 12mm 14mm 12mm;
     size: A4 portrait;
   }
 

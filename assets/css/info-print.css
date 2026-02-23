@@ -7,7 +7,7 @@
 
   @page {
     size: A4 portrait;
-    margin: 0mm 22mm 0mm 22mm;
+    margin: 14mm 20mm 14mm 20mm;
   }
 
   body {
@@ -35,35 +35,35 @@
     text-align: right;
     font-size: 8pt;
     color: #888;
-    margin-bottom: 6pt;
+    margin-bottom: 5pt;
   }
 
   /* ── 문서 제목 ── */
   .ip-doc-title {
     text-align: center;
-    font-size: 16pt;
+    font-size: 17pt;
     font-weight: 900;
-    letter-spacing: 4px;
+    letter-spacing: 5px;
     color: #1a2b50;
-    padding: 6pt 0;
-    border-top: 2.5pt solid #1a2b50;
-    border-bottom: 1.5pt solid #c8b14a;
+    padding: 7pt 0;
+    border-top: 3pt solid #1a2b50;
+    border-bottom: 2pt solid #c8b14a;
     margin-bottom: 10pt;
   }
 
-  /* ── 핵심 요약 ── */
+  /* ── 핵심 요약 박스 ── */
   .ip-summary {
-    border: 1.5pt solid #1a2b50;
+    border: 2pt solid #1a2b50;
     margin-bottom: 10pt;
     page-break-inside: avoid;
   }
   .ip-summary-title {
     background: #1a2b50;
-    color: #fff;
-    font-size: 9pt;
+    color: #f0d060;
+    font-size: 9.5pt;
     font-weight: 900;
-    padding: 4pt 8pt;
-    letter-spacing: 1px;
+    padding: 5pt 9pt;
+    letter-spacing: 1.5px;
   }
   .ip-sum-table {
     width: 100%;
@@ -71,51 +71,71 @@
     font-size: 10pt;
   }
   .ip-sum-table th {
-    background: #f0f3f8;
+    background: #eef1f8;
     color: #1a2b50;
     font-weight: 700;
     font-size: 8.5pt;
-    padding: 6pt 8pt;
+    padding: 6pt 9pt;
     border: 0.5pt solid #ccc;
     white-space: nowrap;
-    width: 60pt;
+    width: 68pt;
     text-align: left;
+    letter-spacing: 0.5px;
   }
   .ip-sum-table td {
     padding: 6pt 10pt;
     border: 0.5pt solid #ccc;
     font-size: 10pt;
     background: #fff;
-    text-align: left;
   }
+
+  /* 매매가격 행 — 진하게 강조 */
   .ip-sum-table tr.ip-price-row th {
     background: #1a2b50;
-    color: #fff;
+    color: #f0d060;
+    font-size: 9pt;
+    letter-spacing: 2px;
   }
   .ip-sum-table tr.ip-price-row td {
-    font-size: 13pt;
+    font-size: 15pt;
     font-weight: 900;
     color: #1a2b50;
-    background: #f7f8fc;
+    background: #f4f6fb;
+    letter-spacing: -0.3px;
   }
+
+  /* 임대조건 행 — 주황/골드 계열 */
+  .ip-sum-table tr.ip-rent-row th {
+    background: #7a4f00;
+    color: #ffe08a;
+    font-size: 8.5pt;
+    letter-spacing: 1px;
+  }
+  .ip-sum-table tr.ip-rent-row td {
+    font-size: 12pt;
+    font-weight: 800;
+    color: #7a4f00;
+    background: #fff8e6;
+  }
+
   .ip-unit {
     font-size: 11pt;
-    font-weight: 700;
+    font-weight: 800;
     color: #1a2b50;
-    background: rgba(26,43,80,0.08);
-    padding: 1pt 6pt;
+    background: rgba(26,43,80,0.10);
+    padding: 1pt 7pt;
     border-radius: 3pt;
   }
 
   /* ── 섹션 타이틀 ── */
   .ip-section-title {
-    font-size: 9pt;
+    font-size: 9.5pt;
     font-weight: 900;
     color: #1a2b50;
-    border-left: 3.5pt solid #c8b14a;
-    padding-left: 6pt;
+    border-left: 4pt solid #c8b14a;
+    padding-left: 7pt;
     margin: 10pt 0 4pt;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
   }
 
   /* ── 상세 정보 표 ── */
@@ -125,8 +145,6 @@
     font-size: 9.5pt;
     page-break-inside: avoid;
     table-layout: fixed;
-    max-width: 100%;
-    overflow: hidden;
   }
   .ip-table th {
     background: #1a2b50;
@@ -136,35 +154,50 @@
     font-weight: 700;
     text-align: left;
     white-space: nowrap;
-    width: 72pt;
+    width: 76pt;
     border: 0.5pt solid #1a2b50;
+    letter-spacing: 0.3px;
   }
   .ip-table td {
     border: 0.5pt solid #ccc;
-    padding: 5pt 8pt;
+    padding: 5pt 9pt;
     background: #fff;
-    text-align: left;
     word-break: break-word;
   }
   .ip-table tr:nth-child(even) td { background: #f8f9fc; }
 
+  /* ── 강조 행 공통 ── */
+  .ip-table tr.ip-highlight th {
+    color: #fff;
+    font-weight: 800;
+  }
+
+  /* 현업종 — 초록 */
+  .ip-table tr.ip-highlight.ip-biz th  { background: #1e6b3a; }
+  .ip-table tr.ip-highlight.ip-biz td  { background: #edfaf2; color: #1e6b3a; font-weight: 700; }
+
+  /* 계약만료일 — 파란 */
+  .ip-table tr.ip-highlight.ip-lease th { background: #1a4a8a; }
+  .ip-table tr.ip-highlight.ip-lease td { background: #eaf1fb; color: #1a4a8a; font-weight: 700; }
+
+  /* 임대조건 — 골드/주황 */
+  .ip-table tr.ip-highlight.ip-rent th { background: #7a4f00; color: #ffe08a; }
+  .ip-table tr.ip-highlight.ip-rent td { background: #fff8e6; color: #7a4f00; font-size: 11pt; font-weight: 800; }
+
+  /* 연락처 (자료용) — 짙은 회색 */
+  .ip-table tr.ip-highlight.ip-contact th { background: #444; }
+  .ip-table tr.ip-highlight.ip-contact td { background: #f5f5f5; color: #222; font-weight: 700; }
+
   /* ── 설명 섹션 ── */
   .ip-desc-block { margin-bottom: 6pt; page-break-inside: avoid; }
   .ip-desc-block .db-title {
-    font-size: 8.5pt;
-    font-weight: 900;
-    color: #fff;
-    background: #1a2b50;
-    padding: 3pt 8pt;
+    font-size: 8.5pt; font-weight: 900; color: #fff;
+    background: #1a2b50; padding: 3pt 8pt;
   }
   .ip-desc-block .db-content {
-    font-size: 9.5pt;
-    line-height: 1.6;
-    padding: 5pt 8pt;
-    border: 0.5pt solid #ccc;
-    border-top: none;
-    white-space: pre-wrap;
-    word-break: break-word;
+    font-size: 9.5pt; line-height: 1.6;
+    padding: 5pt 9pt; border: 0.5pt solid #ccc;
+    border-top: none; white-space: pre-wrap; word-break: break-word;
   }
 
   /* ── 내부 메모 ── */
@@ -175,7 +208,7 @@
   }
   .ip-memo-block .db-content {
     font-size: 9pt; line-height: 1.6;
-    padding: 5pt 8pt; border: 0.5pt solid #ccc;
+    padding: 5pt 9pt; border: 0.5pt solid #ccc;
     border-top: none; background: #fafafa;
     white-space: pre-wrap; word-break: break-word;
   }
@@ -184,42 +217,30 @@
   .ip-write-memo {
     margin-top: 10pt;
     border: 1pt solid #bbb;
-    flex: 1;
     page-break-inside: avoid;
-    min-height: 60pt;
+    min-height: 55pt;
   }
   .ip-write-memo-title {
-    font-size: 8.5pt;
-    font-weight: 900;
-    color: #555;
-    padding: 3pt 8pt;
-    border-bottom: 0.5pt solid #bbb;
-    letter-spacing: 2px;
+    font-size: 8.5pt; font-weight: 900; color: #555;
+    padding: 3pt 9pt; border-bottom: 0.5pt solid #bbb;
+    letter-spacing: 3px;
   }
-  .ip-write-memo-body {
-    height: 90pt;
-    background: #fff;
-  }
+  .ip-write-memo-body { height: 80pt; background: #fff; }
 
   /* ── 하단 푸터 ── */
   .ip-footer {
     margin-top: 10pt;
     padding-top: 6pt;
-    border-top: 1.5pt solid #1a2b50;
+    border-top: 2pt solid #1a2b50;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .ip-footer-main {
-    font-size: 13pt;
-    font-weight: 900;
-    color: #1a2b50;
-    letter-spacing: -0.3px;
+    font-size: 13pt; font-weight: 900;
+    color: #1a2b50; letter-spacing: -0.3px;
   }
-  .ip-footer-note {
-    font-size: 7.5pt;
-    color: #999;
-  }
+  .ip-footer-note { font-size: 7.5pt; color: #999; }
 
   table, tr, td, th { page-break-inside: avoid; }
 }

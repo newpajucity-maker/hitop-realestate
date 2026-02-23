@@ -104,18 +104,19 @@
     letter-spacing: -0.3px;
   }
 
-  /* 임대조건 행 — 주황/골드 계열 */
+  /* 임대조건 — 일반 행과 동일한 색상, 굵게만 강조 */
   .ip-sum-table tr.ip-rent-row th {
-    background: #7a4f00;
-    color: #ffe08a;
+    background: #eef1f8;
+    color: #1a2b50;
     font-size: 8.5pt;
-    letter-spacing: 1px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
   }
   .ip-sum-table tr.ip-rent-row td {
-    font-size: 12pt;
+    font-size: 11pt;
     font-weight: 800;
-    color: #7a4f00;
-    background: #fff8e6;
+    color: #1a2b50;
+    background: #fff;
   }
 
   .ip-unit {
@@ -180,9 +181,9 @@
   .ip-table tr.ip-highlight.ip-lease th { background: #1a4a8a; }
   .ip-table tr.ip-highlight.ip-lease td { background: #eaf1fb; color: #1a4a8a; font-weight: 700; }
 
-  /* 임대조건 — 골드/주황 */
-  .ip-table tr.ip-highlight.ip-rent th { background: #7a4f00; color: #ffe08a; }
-  .ip-table tr.ip-highlight.ip-rent td { background: #fff8e6; color: #7a4f00; font-size: 11pt; font-weight: 800; }
+  /* 임대조건 — 일반 색상, 굵게만 */
+  .ip-table tr.ip-highlight.ip-rent th { background: #1a2b50; color: #fff; }
+  .ip-table tr.ip-highlight.ip-rent td { background: #fff; color: #111; font-size: 10pt; font-weight: 800; }
 
   /* 연락처 (자료용) — 짙은 회색 */
   .ip-table tr.ip-highlight.ip-contact th { background: #444; }
@@ -215,17 +216,18 @@
 
   /* ── 손글씨 메모 박스 ── */
   .ip-write-memo {
-    margin-top: 10pt;
+    margin-top: 8pt;
     border: 1pt solid #bbb;
     page-break-inside: avoid;
-    min-height: 55pt;
+    page-break-before: avoid;
+    min-height: 30pt;
   }
   .ip-write-memo-title {
     font-size: 8.5pt; font-weight: 900; color: #555;
     padding: 3pt 9pt; border-bottom: 0.5pt solid #bbb;
     letter-spacing: 3px;
   }
-  .ip-write-memo-body { height: 80pt; background: #fff; }
+  .ip-write-memo-body { height: 40pt; background: #fff; }
 
   /* ── 하단 푸터 ── */
   .ip-footer {

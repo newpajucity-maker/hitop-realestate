@@ -158,71 +158,7 @@
     if (elBtnHome)      elBtnHome.addEventListener("click",      () => (location.href = "home.html"));
     if (elBtnCustomers) elBtnCustomers.addEventListener("click", () => (location.href = "customers.html"));
 
-    // ── [N-1] 백업: 4개 테이블 전체 포함 ────────────────────────
-    const elBackup = document.getElementById("btnBackup");
-    if (elBackup) {
-      elBackup.addEventListener("click", async () => {
-        elBackup.disabled = true;
-        elBackup.textContent = "백업 중…";
-        try {
-          const data = {
-            listings:       await DataUtil.getListings(),
-            buildings:      await DataUtil.getBuildings(),
-            customers:      await StorageUtil.getArray("customers"),
-            scheduleEvents: await StorageUtil.getArray("scheduleEvents"),
-            exportedAt:     new Date().toISOString(),
-          };
-          StorageUtil.downloadJson(
-            "hitop-backup-" + new Date().toISOString().slice(0, 10) + ".json",
-            data
-          );
-        } finally {
-          elBackup.disabled = false;
-          elBackup.textContent = "백업";
-        }
-      });
-    }
-
-    // ── [N-1] 복원: 4개 테이블 전체 복원 ────────────────────────
-    const elRestore = document.getElementById("btnRestore");
-    if (elRestore) {
-      elRestore.addEventListener("change", async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          try {
-            const data = JSON.parse(ev.target.result);
-            if (!Array.isArray(data.listings)) throw new Error("listings 배열이 없습니다.");
-            const custCount  = Array.isArray(data.customers)      ? data.customers.length      : 0;
-            const schedCount = Array.isArray(data.scheduleEvents) ? data.scheduleEvents.length : 0;
-            if (!confirm(
-              `매물 ${data.listings.length}건, 건물 ${(data.buildings||[]).length}건, ` +
-              `고객 ${custCount}건, 일정 ${schedCount}건을 복원합니다.\n` +
-              `기존 데이터가 덮어쓰입니다. 계속하시겠습니까?`
-            )) return;
-
-            showLoading();
-            await DataUtil.setListings(data.listings);
-            if (Array.isArray(data.buildings))
-              await StorageUtil.setArray("buildings",      data.buildings);
-            if (Array.isArray(data.customers))
-              await StorageUtil.setArray("customers",      data.customers);
-            if (Array.isArray(data.scheduleEvents))
-              await StorageUtil.setArray("scheduleEvents", data.scheduleEvents);
-            hideLoading();
-
-            alert("복원 완료! 페이지를 새로고침합니다.");
-            location.reload();
-          } catch (err) {
-            hideLoading();
-            alert("복원 실패: " + err.message);
-          }
-        };
-        reader.readAsText(file);
-        e.target.value = "";
-      });
-    }
+    // 백업/복원/엑셀 내보내기는 backup.js에서 처리
 
     // ── 체크박스 개별 클릭 이벤트 (이벤트 위임) ─────────────────
     document.addEventListener("click", (e) => {

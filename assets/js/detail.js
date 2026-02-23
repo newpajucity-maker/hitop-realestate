@@ -29,8 +29,7 @@
   btnBack.addEventListener("click", () => history.back());
   if (btnEstimate) {
     btnEstimate.addEventListener("click", () => {
-      const opts = readEstimateFormOpts();
-      window.EstimateUtil.renderAndPrint(listing, opts);
+      location.href = `estimate.html?id=${listing.id}`;
     });
   }
   btnEdit.addEventListener("click", () => { location.href = `register.html?id=${listing.id}`; });
@@ -101,7 +100,6 @@
     } else if (x.memo) { addInfo("메모", x.memo); }
 
     await renderPlan(x);
-    window.EstimateUtil.renderInputForm("estimateFormWrap", listing);
   }
 
   async function renderPlan(x) {
@@ -278,20 +276,5 @@
         <div class="ip-footer-main">하이탑부동산 &nbsp;|&nbsp; ☎ 031-949-8969</div>
         <div class="ip-footer-note">본 설명서는 내부 참고용이며 공식 계약서가 아닙니다.</div>
       </div>`;
-  }
-
-   function readEstimateFormOpts() {
-    const num = (id) => {
-      const el = document.getElementById(id);
-      if (!el) return undefined;
-      const n = Number(el.value);
-      return Number.isFinite(n) ? n : undefined;
-    };
-    return {
-      ltvPct:        num("ef_ltvPct"),
-      interestRate:  num("ef_intRate"),
-      acqTaxRate:    num("ef_acqTaxRate"),
-      regRate:       num("ef_regRate"),
-    };
   }
 })();

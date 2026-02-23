@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>하이탑부동산 | 견적서</title>
+
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+
+  <link rel="stylesheet" href="assets/css/app.css"/>
+  <link rel="stylesheet" href="assets/css/estimate-print.css"/>
+</head>
+
+<body>
+  <div class="page" id="appPage">
+
+    <!-- ── 상단 바 (화면 전용, 인쇄 시 숨김) ── -->
+    <header class="topbar" id="estTopbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div class="brand-text">
+          <h1 id="estPageTitle">견적서</h1>
+          <p id="estPageSub">조건 설정 후 인쇄 출력</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="location.href='home.html'">홈</button>
+        <button class="btn ghost" id="btnBack">뒤로</button>
+        <button class="btn primary" id="btnPrintTop">🖨️ 인쇄 출력</button>
+      </div>
+    </header>
+
+    <!-- ── 조건 설정 패널 (화면 전용) ── -->
+    <div class="est-ctrl-card" id="estCtrlCard">
+      <div class="est-ctrl-title">📊 견적서 조건 설정</div>
+      <div class="est-ctrl-grid">
+        <div class="ef-group">
+          <label>대출 비율 <span class="ef-unit">(%)</span></label>
+          <input id="ef_ltvPct" type="number" step="1" min="0" max="100"
+                 value="60" placeholder="60">
+        </div>
+        <div class="ef-group">
+          <label>이자율 (연) <span class="ef-unit">(%)</span></label>
+          <input id="ef_intRate" type="number" step="0.01" min="0"
+                 value="4.2" placeholder="4.2">
+        </div>
+        <div class="ef-group">
+          <label>취득세율 <span class="ef-unit">(%)</span></label>
+          <input id="ef_acqTaxRate" type="number" step="0.1" min="0"
+                 value="4.6" placeholder="4.6">
+        </div>
+        <div class="ef-group ef-group-btn">
+          <label>&nbsp;</label>
+          <button class="est-ctrl-btn-refresh" type="button" id="btnRefresh">
+            🔄 미리보기 갱신
+          </button>
+        </div>
+      </div>
+      <div class="est-ctrl-hint" id="estCtrlHint">
+        값을 변경한 후 <strong>미리보기 갱신</strong>을 눌러 업데이트하세요.
+      </div>
+    </div>
+
+    <!-- ── 견적서 미리보기 영역 ── -->
+    <div class="est-preview-card" id="estPreviewCard">
+      <div id="estimatePrint"></div>
+    </div>
+
+  </div><!-- /.page -->
+
+  <script src="assets/js/storage.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/estimate.js"></script>
+  <script src="assets/js/estimate-page.js"></script>
+</body>
+</html>
